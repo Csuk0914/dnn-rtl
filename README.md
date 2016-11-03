@@ -1,3 +1,4 @@
 # dnn-RTL
 
-RTL implementaion of USC's DNN system.
+[work in progress] RTL implementaion of USC's DNN system.
+
