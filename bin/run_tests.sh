@@ -47,7 +47,7 @@ if [ "$simulator" = "vsim"  ]; then
         outfile=$(mktemp --suffix ".vvp")
 	case $backend in
 	   normal|log) echo -n
-    	     iverilog -Wall "$dump" "$monitor" -s harness src/$backend/DNN.v $testfile -Iverilog/test/$backend -o "$outfile" 2>&1 ;;
+    	     vsim -Wall "$dump" "$monitor" -s harness src/$backend/DNN.v $testfile -Iverilog/test/$backend -o "$outfile" 2>&1 ;;
            *) echo Unknown backend ;;
         esac
 	vvp $pause "$outfile"
