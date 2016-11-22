@@ -24,7 +24,7 @@ module memory #(
 	integer i;
 	initial begin
 		for (i = 0; i < depth; i = i + 1)
-			mem[i] = 0;
+			mem[i] = 0;//($random%2)? $random%(2**22):-$random%(2**22);
 		data_out = 0;
 	end
 endmodule
@@ -154,7 +154,7 @@ module dual_port_memory #(
 	integer i;
 	initial begin
 	for (i = 0; i < depth; i = i + 1)
-		mem[i] = 0;
+		mem[i] = 0;//($random%2)? $random%(2**23):-$random%(2**23);
 	data_outA = mem[addressA];
 	data_outB = mem[addressB];
 	end

@@ -9,7 +9,8 @@ module FF_processor_set #(
 	parameter n  = 8,
 	parameter z  = 8,
 	parameter width = 16,
-	parameter int_bits = 5
+	parameter int_bits = 5, 
+	parameter frac_bits = 10
 )(
 	input clk,
 	input [width*z -1:0] a_package, //Process z input activations together, each width bits
@@ -58,7 +59,7 @@ module FF_processor_set #(
 	generate for (gv_i = 0; gv_i<(z/fi); gv_i = gv_i + 1)
 	begin : sigmoid_function_set
 		sigmoid_function #(
-			.fo(fo), .fi(fi), .p(p), .n(n), .z(z), .width(width)
+			.fo(fo), .fi(fi), .p(p), .n(n), .z(z), .width(width), .frac_bits(frac_bits), .int_bits(int_bits)
 		) s_function (
 			.clk(clk),
 			.aw_package(aw_package[gv_i]),
@@ -77,7 +78,9 @@ module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	parameter p  = 16,
 	parameter n  = 8,
 	parameter z  = 8,
-	parameter width =16
+	parameter width =16,
+	parameter int_bits = 5, 
+	parameter frac_bits = 10
 )(
 	input clk,
 	// All the following parameters are for 1 neuron
@@ -120,8 +123,8 @@ module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	endgenerate
 
 	adder #(.width(width)) bias_adder (partial_s[fi*2-2], b, s);
-	sigmoid_t #(.width(width)) s_table (clk, s, sigmoid);
-	sig_prime #(.width(width)) sp_table (clk, s, sp);
+	sigmoid_t #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) s_table (clk, s, sigmoid);
+	sig_prime #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) sp_table (clk, s, sp);
 endmodule
 
 // __________________________________________________________________________________________________________ //
@@ -135,6 +138,7 @@ module BP_processor_set #(
 	parameter n  = 8,
 	parameter z  = 8,
 	parameter width = 16,
+	parameter frac_bits = 10,
 	parameter int_bits = 5
 )(
 	input [width*z/fi-1:0] deltan_package, //input deln values
@@ -211,7 +215,7 @@ module UP_processor_set #(
 );
 
 	reg [width-1:0] Eta = -eta*2**frac_bits;
-	//reg [width-1:0] Lamda = lamda*2**frac_bits;
+	reg [width-1:0] Lamda = lamda*2**frac_bits;
 	
 	// Unpack
 	wire [width-1:0] a [z-1:0];
@@ -264,9 +268,11 @@ module UP_processor_set #(
 		begin :weight_update
 			multiplier #(.width(width),.int_bits(int_bits)) mul_a_d(delta_b[gv_i], a[gv_i*fi+gv_j], delta_w[gv_i*fi+gv_j]);
 			adder #(.width(width)) update_w(w[gv_i*fi+gv_j], delta_w[gv_i*fi+gv_j], w_new[gv_i*fi+gv_j]);
-			assign w_UP[gv_i*fi+gv_j] = (w[gv_i*fi+gv_j]<(2**(width-1)-1)*lamda||
-							w[gv_i*fi+gv_j]>(2**(width-1)-1)*(2-lamda))? 
+			assign w_UP[gv_i*fi+gv_j] = (w_new[gv_i*fi+gv_j]<(2**(width-1)-1)*lamda ||
+							w_new[gv_i*fi+gv_j]>(2**(width-1)-1)*(2-lamda))? 
 				w_new [gv_i*fi+gv_j] : w [gv_i*fi+gv_j];
+			//multiplier #(.width(width),.int_bits(int_bits)) mul_a_d1(Lamda, w_new [gv_i*fi+gv_j], w_UP[gv_i*fi+gv_j]);
+			//assign w_UP[gv_i*fi+gv_j] = w_new [gv_i*fi+gv_j];
 		end
 	end
 	endgenerate

@@ -93,7 +93,7 @@ module costterm_set #(
 
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
 	begin : cost_adder_set
-		adder cost_adder(a[gv_i], y[gv_i], costterm[gv_i]);
+		adder #(.width(width))cost_adder(a[gv_i], y[gv_i], costterm[gv_i]);
 	end
 	endgenerate
 endmodule
@@ -132,7 +132,7 @@ module cycle_block_counter #(
 
 	always @(posedge clk) begin
 		if (reset) begin
-			count <= cpc-1; //count stays at highest value during reset, so that it becomes 0 on next clk
+			count <= 0; //count stays at highest value during reset, so that it becomes 0 on next clk
 			cycle_clk = 0;
 		end else begin //reset is off
 			if(count == cpc-1) begin

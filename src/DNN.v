@@ -38,7 +38,7 @@ module DNN #(
 	//Same cpc in different junctions is fine, cpc has to be 2^x + 2
 	// [todo future] ADD support for different cpc
 )(
-	input [z[0]/fo[0]-1:0] a_in, //Load activations from outside. z[0] weights processed together in first junction => z[0]/fo[0] activations together
+	input [8*z[0]/fo[0]-1:0] a_in, //Load activations from outside. z[0] weights processed together in first junction => z[0]/fo[0] activations together
 	input [z[L-2]/fi[L-2]-1:0] y_in, //Load ideal outputs from outside. z[L-2] weights processed together in last junction => z[L-2]/fi[L-2] activations together 
 	input clk,
 	input reset, //active high
