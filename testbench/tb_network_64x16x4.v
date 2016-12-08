@@ -165,7 +165,7 @@ module tb_network #(
 		num_train <= num_train + 1;
 		sel_tc <= sel_tc + 1;
 		tc_error <= 0;
-		if (num_train==100) $stop; //2nd stop condition
+		if (num_train==1000) $stop; //2nd stop condition
 	end
 
 	always @(posedge clk) begin

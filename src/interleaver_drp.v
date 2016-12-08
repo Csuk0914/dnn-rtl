@@ -140,7 +140,7 @@ module r_dither #( //Take single number cycle index input and calculates its rea
 		
 		// IMPORTANT: Sometimes, when running a smaller DNN, the part selection here can be small to big, i.e. something like cycle_index_i[3:4]
 		// This might give errors in Vivado, so this will need to be commented out
-		/*else if (m == 16)
+		else if (m == 16)
 		case (cycle_index_i[$clog2(m)-1:0])
 			0: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd1};
 			1: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd6};
@@ -158,7 +158,7 @@ module r_dither #( //Take single number cycle index input and calculates its rea
 			13: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd0};
 			14: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd5};
 			15: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd12};
-		endcase*/
+		endcase
 	end
 endmodule
 
@@ -204,7 +204,7 @@ module w_dither #( //Take RP output and calculate final DRP output
 		
 		// IMPORTANT: Sometimes, when running a smaller DNN, the part selection here can be small to big, i.e. something like cycle_index_i[3:4]
 		// This might give errors in Vivado, so this will need to be commented out
-		/*else if (m == 16)
+		else if (m == 16)
 		case (RP_i[$clog2(m)-1:0])
 			0: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd5};
 			1: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd8};
@@ -222,6 +222,6 @@ module w_dither #( //Take RP output and calculate final DRP output
 			13: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd15};
 			14: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd3};
 			15: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd6};
-		endcase*/
+		endcase
 	end
 endmodule
