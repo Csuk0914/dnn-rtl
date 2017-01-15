@@ -1,5 +1,5 @@
 Under this folder, one file contains 2000 random 2's complement number following gaussian distribution.
 The file name represents the parameter of the random number.
 s136: fi+fo=136, sigma = 2/(fi+fo)
-frc20: the fixed point fraction part is 21 bit.
+frc21: the fixed point fraction part is 21 bit.
 int10: the fixed point integer part is 10 bit.
