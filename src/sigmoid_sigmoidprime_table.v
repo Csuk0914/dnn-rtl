@@ -17,18 +17,14 @@ module sigmoid_t #(
 	input [width-1:0] z, //1+5+10
 	output reg [width-1:0] sigmoid_out //1+5+10
 );
-	
 	reg [20:0] sigmoid; //calculated f(z)
-/*
-	real real_z, real_sigmoid;
-
-	
-
-	always @(posedge clk)begin
-		real_z = z/2**(frac_bits)-z[width-1]*2.0**(1+int_bits);
-		real_sigmoid = 1.0/(1+2.71828**(-real_z));
-		sigmoid_out = real_sigmoid*2**(frac_bits);
-	end*/
+	/*always @(posedge clk)
+		if(z[width-1]==1|| z==0 )
+			sigmoid_out = (z[width-1:width-int_bits+2] == 0 || (&z[width-1:width-int_bits+2] ))?
+			{{(int_bits+1){1'b0}}, sigmoid}: 
+			(z[width-1])?  1: {1'b1, {(frac_bits){1'b0}}}-1;
+		else
+			sigmoid_out = z;*/
 
 	always @(posedge clk)
 		sigmoid_out = (z[width-1:width-int_bits+2] == 0 || (&z[width-1:width-int_bits+2] ))?
@@ -16446,22 +16442,24 @@ module sig_prime #(
 	input [width-1:0] z,
 	output reg[width-1:0] sp_out
 );
-	
+
 	reg [17:0] sigmoid_prime;
-	/*real real_z, real_sp;
 
+	/*always @(posedge clk)
+	if(z[width-1]==1||z==0)
+		sp_out = (z[width-1:width-int_bits+2] == 0 ||&z[width-1:width-int_bits+2])? 
+			{{(int_bits+1){1'b0}},sigmoid_prime,3'b0}:1;//0;
+	else
+		//sp_out = (z[width-1:width-int_bits+2] == 0 ||&z[width-1:width-int_bits+2])? 
+		//	{{(int_bits+1){1'b0}},sigmoid_prime,3'b0}:1;
+		sp_out = 1'b1<<frac_bits;*/
 	
-
-	always @(posedge clk)begin
-		real_z = z/2**(frac_bits)-z[width-1]*2.0**(1+int_bits);
-		real_sp = 1.0/(1+2.71828**(-real_z))*(1.0-1.0/(1+2.71828**(-real_z)));
-		sp_out = real_sp*2**(frac_bits)+10;
-	end*/
+	
 	always @(posedge clk)
 	sp_out = (z[width-1:width-int_bits+2] == 0 ||&z[width-1:width-int_bits+2])? 
-			{{(int_bits+2){1'b0}},sigmoid_prime}:1;
+			{{(int_bits+1){1'b0}},sigmoid_prime,3'b0}:1;
 	// If condition is not met, z is too high or too low. In that case, f'(z)=0
-
+	
 	always @(z[frac_bits+4:frac_bits-9])
 	case (z[frac_bits+4:frac_bits-9])
 		//sign, 3bits_i, 6bits_f ~ 0.015625  --->   8bits_f ~ 0.0009766(3~10)

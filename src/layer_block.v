@@ -7,9 +7,10 @@ module input_layer_block #(
 	parameter z = 8, //Degree of parallelism
 	parameter fi = 4, //Fan-in of neurons in next layer
 	parameter fo = 2, //Fan-out of neurons in this input layer
-	parameter eta = 0.05, //Learning rate
+	//parameter eta = 0.05, //Learning rate
 	parameter lamda = 1, //Regularization parameter
 	parameter width = 16, //Bit width
+	parameter width_in = 1, //input data width
 	parameter int_bits = 5, //No. of bits in integer part
 	parameter frac_bits = 10, //No. of bits in fractional part
 	parameter L = 2, //Total no. of layers in network
@@ -20,7 +21,8 @@ module input_layer_block #(
 	input reset,
 	input [$clog2(cpc)-1:0] cycle_index, //Index of clock cycle
 	input cycle_clk, //1 cycle_clk = cpc clks
-	input [8*z/fo-1:0] act0, //No. of activations coming per clock from external environment, each is 1b = 0 or 1. z weights processed in 1 cycle, fo weights = 1 activation, hence z/fo
+	input [width-1:0] eta, //Learning rate
+	input [width_in*z/fo-1:0] act0, //No. of activations coming per clock from external environment, each is 1b = 0 or 1. z weights processed in 1 cycle, fo weights = 1 activation, hence z/fo
 	input [width*z/fi-1:0] d1, //No. of deln values coming per clock from next layer, each is width bits. z weights processed in 1 cycle, fi weights = 1 delta, hence z/fi
 	output [width*z/fi-1:0] act1, //No. of actn values computed per clock and going to next layer, each is width bits. z weights processed in 1 cycle, fi weights = 1 act out, hence z/fi
 	output [width*z/fi-1:0] sp1 //Every act1 has associated sp1
@@ -38,12 +40,12 @@ module input_layer_block #(
 	wire [(z+z/fi)*$clog2(p*fo/z)-1:0] wb_addrA, wb_addrB;	//WBM address
 
 // Datapath signals: MUXes, memories, processor sets
-	wire [8*z-1:0] act0_FF, act0_UP; //8b act values
+	wire [width_in*z-1:0] act0_FF, act0_UP; //8b act values
 	wire [width*z-1:0] act0_FF_in, act0_UP_in; //extended to width bits act values for processor set usage
 	wire [width*z-1:0] w, w_UP;	//old and new weights
 	wire [width*z/fi-1:0] b, b_UP; //old and new biases
-	wire [8*collection*z-1:0] act0_mem_in, act_mem_out; //act memory in/out - 0 or 1
-	wire [8*z-1:0] act_rFF_raw, act_rUP_raw;	//activation output after collection selected
+	wire [width_in*collection*z-1:0] act0_mem_in, act_mem_out; //act memory in/out - 0 or 1
+	wire [width_in*z-1:0] act_rFF_raw, act_rUP_raw;	//activation output after collection selected
 
 
 // Input Layer State Machine (L=1): 
@@ -64,7 +66,7 @@ module input_layer_block #(
 		.z(z), 
 		.L(L), 
 		.cpc(cpc), 
-		.width(8), 
+		.width(width_in), 
 		.collection(collection)
 	) input_layer_state_machine (
 		.clk(clk),
@@ -107,7 +109,7 @@ module input_layer_block #(
 // Memories
 	mem_collection #( //AMp collections
 		.collection(collection), 
-		.width(8), //since all values come from external, i.e. 0 or 1
+		.width(width_in), //since all values come from external, i.e. 0 or 1
 		.depth(p/z), 
 		.z(z)
 	) AMp_coll (
@@ -122,7 +124,9 @@ module input_layer_block #(
 		.collection(1), 
 		.width(width), 
 		.depth(p*fo/z), 
-		.z(z+z/fi)
+		.z(z+z/fi), 
+		.fi(fi), 
+		.fo(fo)
 	) wb_mem (
 		.clk(clk), 
 		.weA_package(wb_weA),
@@ -143,8 +147,8 @@ module input_layer_block #(
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
 	begin: processor_in
 	//act0_FF and act0_UP are 1b values. To convert to width bits, they should be the LSB of the integer part. [Eg: For [15:0] = 1,5,10, they should occupy bit 10]
-		assign act0_FF_in[width*(gv_i+1)-1:width*gv_i] = {{(int_bits+1){1'b0}}, act0_FF[8*(gv_i+1)-1:gv_i*8], {(frac_bits-8){1'b0}}};
-		assign act0_UP_in[width*(gv_i+1)-1:width*gv_i] = {{(int_bits+1){1'b0}}, act0_UP[8*(gv_i+1)-1:gv_i*8], {(frac_bits-8){1'b0}}};
+		assign act0_FF_in[width*(gv_i+1)-1:width*gv_i] = {{(int_bits+1){1'b0}}, act0_FF[width_in*(gv_i+1)-1:gv_i*width_in], {(frac_bits-width_in){1'b0}}};
+		assign act0_UP_in[width*(gv_i+1)-1:width*gv_i] = {{(int_bits+1){1'b0}}, act0_UP[width_in*(gv_i+1)-1:gv_i*width_in], {(frac_bits-width_in){1'b0}}};
 	end
 	endgenerate
 	
@@ -172,12 +176,13 @@ module input_layer_block #(
 	 	.p(p), 
 	 	.n(n), 
 	 	.z(z), 
-	 	.eta(eta), 
+	 	//.eta(eta), 
 	 	.lamda(lamda),
 	 	.width(width),
 		.int_bits(int_bits),
 		.frac_bits(frac_bits)
 	) L0_UP_processor (
+		.eta(eta), 
 		.delta_package(d1),
 		.w_package(w),
 		.b_package(b),
@@ -189,21 +194,21 @@ module input_layer_block #(
 
 // MUXes	
 	mux #( //Select AM collection for FF
-		.width(8*z), //Read out z activations, each is 1b (since input is 1b)
+		.width(width_in*z), //Read out z activations, each is 1b (since input is 1b)
 		.N(collection)) FFcoll_sel
 		(act_mem_out, rFF_pt, act_rFF_raw);
 
 	mux #( //Select AM collection for UP
-		.width(8*z), 
+		.width(width_in*z), 
 		.N(collection)) UPcoll_sel
 		(act_mem_out, rUP_pt, act_rUP_raw);
 
 	mux_set #(
-		.width(8), //Within collection, select AM for FF
+		.width(width_in), //Within collection, select AM for FF
 		.N(z)) rFF_mux
 		(act_rFF_raw, mux_sel, act0_FF);
 
-	mux_set #(.width(8), //Within collection, select AM for UP
+	mux_set #(.width(width_in), //Within collection, select AM for UP
 		.N(z)) rUP_mux
 		(act_rUP_raw, mux_sel, act0_UP);
 endmodule
@@ -217,7 +222,7 @@ module hidden_layer_block #(
 	parameter z = 4,
 	parameter fi = 4,
 	parameter fo = 2,
-	parameter eta = 0.05,
+	//parameter eta = 0.05,
 	parameter lamda = 1,
 	parameter width = 16, 
 	parameter int_bits = 5, //No. of bits in integer part. Needed for all processors
@@ -231,6 +236,7 @@ module hidden_layer_block #(
 	input reset,
 	input [$clog2(cpc)-1:0] cycle_index,
 	input cycle_clk,
+	input [width-1:0] eta, //Learning rate
 	input [width*z/fo-1:0] actin, //from prev
 	input [width*z/fo-1:0] spin, //from prev
 	input [width*z/fi-1:0] din, //from next
@@ -375,7 +381,9 @@ module hidden_layer_block #(
 		.collection(1), 
 		.width(width), 
 		.depth(p*fo/z), 
-		.z(z+z/fi)
+		.z(z+z/fi), 
+		.fi(fi), 
+		.fo(fo)
 	) wb_mem (
 		.clk(clk), 
 		.weA_package(wb_weA),
@@ -431,12 +439,13 @@ module hidden_layer_block #(
 	 	.p(p), 
 	 	.n(n), 
 	 	.z(z), 
-	 	.eta(eta), 
+	 	//.eta(eta), 
 	 	.lamda(lamda),
 	 	.width(width),
 		.int_bits(int_bits),
 		.frac_bits(frac_bits)
 	) UP_processor (
+		.eta(eta), 
 		.delta_package(din),
 		.w_package(w),
 		.b_package(b),
@@ -646,7 +655,8 @@ module output_layer_block #(
 	genvar gv_i;
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
 	begin : a_output
-		assign a_out[gv_i] = actL[gv_i*width+frac_bits-1]|| actL[gv_i*width+frac_bits]; //This picks out the fractional part MSB. Use that to threshold, i.e. if >=0.5, output=1, if <0.5, output is 0
+		assign a_out[gv_i] = (actL[(gv_i+1)*width-1:gv_i*width] > 0)? 1 : 0;//For ReLu function
+		//assign a_out[gv_i] = actL[gv_i*width+frac_bits-1]|| actL[gv_i*width+frac_bits]; //This picks out the fractional part MSB. Use that to threshold, i.e. if >=0.5, output=1, if <0.5, output is 0
 	end
 	endgenerate
 endmodule

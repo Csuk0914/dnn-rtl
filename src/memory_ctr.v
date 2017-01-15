@@ -181,7 +181,7 @@ module hidden_layer_state_machine #( // This is state machinw, so it will input 
 	 	.p(p), 
 	 	.n(n), 
 	 	.z(z)
-	) inter (
+	) interlever (
 		.cycle_index(cycle_index[$clog2(cpc-2)-1:0]), //if cpc = 3, then $clog2(cpc-2)-1 = -1. For Verilog, a[-1:0] is a syntax error. So cpc must be > 3
 		.memory_index_package(memory_index)
 	);
@@ -491,7 +491,7 @@ module input_layer_state_machine #(
 	 	.p(p), 
 	 	.n(n), 
 	 	.z(z)
-	) inter (
+	) interleaver (
 		.cycle_index(cycle_index[$clog2(cpc-2)-1:0]),
 		.memory_index_package(memory_index)
 	);

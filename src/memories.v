@@ -1,4 +1,5 @@
 // This file contains a number of different types of memories
+`timescale 1ns/100ps
 
 //basic signle port memory module
 module memory #(
@@ -125,7 +126,9 @@ endmodule
 //basic dual port memory module
 module dual_port_memory #(
 	parameter depth = 2,
-	parameter width = 16
+	parameter width = 16, 
+	parameter fi = 0, 
+	parameter fo = 0
 )(
 	input clk,
 	input weA,
@@ -153,10 +156,26 @@ module dual_port_memory #(
 	//[todo] Find how to initialize FPGA mem and delete initial
 	integer i;
 	initial begin
-	for (i = 0; i < depth; i = i + 1)
-		mem[i] = 0;//($random%2)? $random%(2**23):-$random%(2**23);
-	data_outA = mem[addressA];
-	data_outB = mem[addressB];
+	#0.1;
+	// for weight memory initial it to glorot gaussian distribution
+	// u = 0, sigma = 1/(fi+fo)
+	//Marsaglia and Bray method to generate the random number following Gaussian distribution
+		if(fi != 0) begin
+			for (i = 0; i < depth; i = i + 1) begin //
+				if((fi+fo)==136)
+					#0.1 mem[i] = MNIST_tb.memL1[($random%1000+1000)];
+				else if ((fi+fo)==40)
+					#0.1 mem[i] = MNIST_tb.memL2[($random%1000+1000)];
+			end
+		end
+		// for else memory initial it to 0 value
+		else begin
+			for (i = 0; i < depth; i = i + 1) begin //
+				mem[i] = 0;//($random%2)? $random%(2**23):-$random%(2**23);
+			end
+		end
+		data_outA = mem[addressA];
+		data_outB = mem[addressB];
 	end
 endmodule
 
@@ -164,7 +183,9 @@ endmodule
 module parallel_dual_port_mem #(
 	parameter z = 8,
 	parameter depth = 2,
-	parameter width = 16
+	parameter width = 16, 
+	parameter fi = 0, 
+	parameter fo = 0
 )(	
 	input clk,
 	input [z-1:0] weA,
@@ -198,7 +219,9 @@ module parallel_dual_port_mem #(
 	begin : parallel_mem
 		dual_port_memory #(
 			.depth(depth),
-			.width(width)
+			.width(width), 
+			.fi(fi), 
+			.fo(fo)
 		) dual_port_memory (
 			.clk(clk),
 			.addressA(addressA[gv_i]),
@@ -219,7 +242,9 @@ module dual_port_mem_collection #(
 	parameter collection = 5,
 	parameter z = 8,
 	parameter depth = 2,
-	parameter width = 16
+	parameter width = 16, 
+	parameter fi = 0, 
+	parameter fo = 0
 )(
 	input clk,
 	input [collection*z-1:0] weA_package,
@@ -257,7 +282,9 @@ module dual_port_mem_collection #(
 		parallel_dual_port_mem #(
 			.z(z), 
 			.width(width), 
-			.depth(depth)
+			.depth(depth), 
+			.fi(fi), 
+			.fo(fo)
 		) mem (
 			.clk(clk),
 			.addressA_package(addrA[gv_i]),
