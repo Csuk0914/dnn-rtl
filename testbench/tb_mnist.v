@@ -10,10 +10,10 @@ module MNIST_tb #(
 	parameter [31:0]fi[0:L-2]  = '{128, 32},
 	parameter [31:0]z[0:L-2]  = '{512, 32},
 	parameter [31:0]n[0:L-1] = '{1024, 64, 16},
-	parameter eta = 1,
-	parameter lamda = 0.15,
+	parameter Eta = 1,
+	parameter lamda = 0.25,
 	// Testbench parameters:
-	parameter training_cases = 5000,
+	parameter training_cases = 50000,
 	//parameter test_cases = 8,
 	parameter clock_period = 10,
 	parameter cpc =  n[0] * fo[0] / z[0] + 2
@@ -25,6 +25,7 @@ module MNIST_tb #(
 	////////////////////////////////////////////////////////////////////////////////////
 	reg clk = 1;
 	reg reset = 1;
+	reg [width-1:0] eta;
 	wire [8*z[0]/fo[0]-1:0] a_in; //No. of input activations coming into input layer per clock
 	wire [z[L-2]/fi[L-2]-1:0] y_in; //No. of ideal outputs coming into input layer per clock
 	wire [z[L-2]/fi[L-2]-1:0] y_out; //ideal output (y_in after going through all layers)
@@ -34,7 +35,8 @@ module MNIST_tb #(
 	// Instantiate DNN
 	////////////////////////////////////////////////////////////////////////////////////
 	DNN #(
-		.width(width),
+		.width(width), 
+		.width_in(8),
 		.int_bits(int_bits),
 		.frac_bits(frac_bits),
 		.L(L), 
@@ -42,17 +44,29 @@ module MNIST_tb #(
 		.fi(fi), 
 		.z(z), 
 		.n(n), 
-		.eta(eta), 
+		//.eta(eta), 
 		.lamda(lamda)
 	) DNN (
 		.a_in(a_in),
-		.y_in(y_in),
+		.y_in(y_in), 
+		.eta_in(eta), 
 		.clk(clk),
 		.reset(reset),
 		.y_out(y_out),
 		.a_out(a_out)
+		//.eta(eta)
 	);
 
+
+
+	////////////////////////////////////////////////////////////////////////////////////
+	// initial weight memory Pre-Processing
+	////////////////////////////////////////////////////////////////////////////////////
+	reg [width-1:0] memL1[1999:0], memL2[1999:0];
+	initial begin
+		$readmemb("./gaussian_list/s136_frc20_int10.dat", memL1);
+		$readmemb("./gaussian_list/s40_frc20_int10.dat", memL2);
+	end
 
 
 	////////////////////////////////////////////////////////////////////////////////////
@@ -60,7 +74,7 @@ module MNIST_tb #(
 	////////////////////////////////////////////////////////////////////////////////////
 	wire [n[L-1]-1:0] y; //Complete 1b ideal output for 1 training case, i.e. No. of output neurons x 1 x 1
 	wire [8*n[0]-1:0] a; //Complete 8b act input for 1 training case, i.e. No. of input neurons x 8 x 1
-	reg [$clog2(training_cases)-1:0] sel_tc = 0; //MUX select
+	reg [$clog2(training_cases)-1:0] sel_tc = 10000; //MUX select
 	wire [$clog2(cpc-2)-1:0] sel_network; //MUX select
 
 	mux #( //Choose the required no. of ideal outputs for feeding to DNN
@@ -113,12 +127,12 @@ module MNIST_tb #(
 	// comment the $display if too much information shows on screen 
 	////////////////////////////////////////////////////////////////////////////////////
 	always @(posedge cycle_clk) begin
-		Evaluate previous training case
+		//Evaluate previous training case
 		$display("Training case number = %0d", num_train);
 		$display("Training Case Error = %0d", tc_error);
 		$display("Total Error = %0d", total_error);
 		$display("Error rate = %2.5f", error_rate);
-		$fdisplay(file, "%0d", total_error);
+		//$fdisplay(file, "%0d", total_error);
 		if (tc_error != 0) total_error = total_error+1;
 		//Start new training case
 		num_train <= num_train + 1;
@@ -127,7 +141,7 @@ module MNIST_tb #(
 			$display("finish train epoch %d", epoch);
 		tc_error <= 0;
 		error_rate <= 0;
-		if (num_train==10000) $stop; //2nd stop condition
+		if (num_train==100000) $stop; //2nd stop condition
 	end
 
 	always @(posedge clk) begin
@@ -170,6 +184,7 @@ module MNIST_tb #(
 	endgenerate
 
 	initial begin
+		eta = ~(Eta * (2 ** frac_bits)) + 1; //convert the Eta to fix point
 		$readmemb("train_result.dat", y_mem);
 		$readmemh("train_input.dat", a_mem);
 	end
@@ -197,7 +212,7 @@ module MNIST_tb #(
 	wire [8:0]a_index_w[31:0];
 	genvar gv_p;
 	generate for(gv_p=0;gv_p<32;gv_p=gv_p+1) begin
-			assign a_index_w[gv_p]=DNN.hidden_layer_block_1.hidden_layer_state_machine.inter.maid[gv_p].DRP.memory_index;
+			//assign a_index_w[gv_p]=DNN.hidden_layer_block_1.hidden_layer_state_machine.inter.maid[gv_p].DRP.memory_index;
 		end
 	endgenerate
 
