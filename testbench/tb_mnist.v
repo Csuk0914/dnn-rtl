@@ -64,8 +64,8 @@ module MNIST_tb #(
 	////////////////////////////////////////////////////////////////////////////////////
 	reg [width-1:0] memL1[1999:0], memL2[1999:0];
 	initial begin
-		$readmemb("./gaussian_list/s136_frc20_int10.dat", memL1);
-		$readmemb("./gaussian_list/s40_frc20_int10.dat", memL2);
+		$readmemb("./gaussian_list/s136_frc21_int10.dat", memL1);
+		$readmemb("./gaussian_list/s40_frc21_int10.dat", memL2);
 	end
 
 
