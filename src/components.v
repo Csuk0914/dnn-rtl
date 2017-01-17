@@ -56,6 +56,7 @@ module multiplier_set #(
 endmodule
 
 
+//[todo] increase number of bits to prevent overflow
 module adder #(
 	parameter width = 16
 )(
