@@ -145,7 +145,7 @@ module cycle_block_counter #(
 
 	always @(posedge clk) begin
 		if (reset) begin
-			count <= 0; //count stays at highest value during reset, so that it becomes 0 on next clk
+			count <= 0;
 			cycle_clk = 0;
 		end else begin //reset is off
 			if(count == cpc-1) begin
