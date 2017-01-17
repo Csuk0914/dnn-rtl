@@ -23,7 +23,7 @@
 
 module DNN #(
 	parameter width = 16, //Bit width
-	parameter width_in = 8, //input data width
+	parameter width_in = 8, //input data width, i.e. no. of bits each input neuron can take in
 	parameter int_bits = 5, //no. of integer bits
 	parameter frac_bits = 10, //no. of fractional part bits
 	parameter L = `L, //Total no. of layers (including input and output)
@@ -36,7 +36,7 @@ module DNN #(
 	parameter lamda = `lamda, //L2 regularization
 	parameter cost_type = `cost_type, //0 for quadcost, 1 for xentcost
 	parameter cpc =  n[0] * fo[0] / z[0] + 2	//clocks per cycle block = Weights/parallelism. 2 extra needed because FF is 3 stage operation
-	//Same cpc in different junctions is fine, cpc has to be 2^x + 2
+	//Same cpc in different junctions is fine, cpc has to be a (power of 2) + 2
 	// [todo future] ADD support for different cpc
 )(
 	input [width_in*z[0]/fo[0]-1:0] a_in, //Load activations from outside. z[0] weights processed together in first junction => z[0]/fo[0] activations together
