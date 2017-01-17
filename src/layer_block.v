@@ -199,7 +199,7 @@ module input_layer_block #(
 
 // MUXes	
 	mux #( //Select AM collection for FF
-		.width(width_in*z), //Read out z activations, each is 1b (since input is 1b)
+		.width(width_in*z), //Read out z activations, each is  width_in bits (since input is width_in bits)
 		.N(collection)) FFcoll_sel
 		(act_mem_out, rFF_pt, act_rFF_raw);
 
