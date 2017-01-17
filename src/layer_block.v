@@ -656,12 +656,15 @@ module output_layer_block #(
 		(deltaL_mem_out, r_pt, deltaL); //choose collection and output chosen delta value to previous layer
 
 
-// Threshold width bit outputs to get 1b outputs
+	// Threshold width bit outputs to get 1b outputs (DEPENDING ON ACTIVATION)
 	genvar gv_i;
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
-	begin : a_output
-		assign a_out[gv_i] = (actL[(gv_i+1)*width-1:gv_i*width] > 0)? 1 : 0;//For ReLu function
+		begin : a_output //[todo] Insert ifdef for different activations
+		// For sigmoid:
 		//assign a_out[gv_i] = actL[gv_i*width+frac_bits-1]|| actL[gv_i*width+frac_bits]; //This picks out the fractional part MSB. Use that to threshold, i.e. if >=0.5, output=1, if <0.5, output is 0
+		
+		// For ReLU: [todo: Where is the middle linear portion?]
+		assign a_out[gv_i] = (actL[(gv_i+1)*width-1:gv_i*width] > 0)? 1 : 0;	
 	end
 	endgenerate
 endmodule
