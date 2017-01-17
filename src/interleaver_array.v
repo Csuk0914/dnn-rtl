@@ -1,4 +1,4 @@
-// Implementing rsweep_chng interleaver
+// Implementing rs_chng + rsweep_chng interleaver
 `timescale 1ns/100ps
 
 module interleaver_set #(
@@ -7,9 +7,14 @@ module interleaver_set #(
 	parameter p  = 32,
 	parameter n  = 8,
 	parameter z  = 8,
+  /* For the nexy parameter, note:
+  * For every sweep from 0 to fo-1, there is a starting vector which is z elements long, where each element can take values from 0 to p/z-1
+	* So total size of sweepstart is fo*z elements of log(p/z) bits each. The whole thing can be psuedo-randomly generated in Python, then passed
+  * Here there are different cases defined for sweepstart - some small, and some very large (for MNIST) */
 	parameter [$clog2(p/z)-1:0] sweepstart [0:fo*z-1] = ((p/z)==4&&(fo*z)==16)? 
-	'{2'd1,2'd3,2'd2,2'd0,2'd0,2'd2,2'd1,2'd3,2'd2,2'd0,2'd3,2'd1,2'd3,2'd1,2'd0,2'd2} : 
-	((p/z)==2&&(fo*z)==4096)? 
+  '{2'd1,2'd3,2'd2,2'd0,2'd0,2'd2,2'd1,2'd3,2'd2,2'd0,2'd3,2'd1,2'd3,2'd1,2'd0,2'd2} : //This is the small case
+  
+  ((p/z)==2&&(fo*z)==4096)? //This is for MNIST
 	'{1'd1, 1'd1, 1'd0, 1'd1, 1'd0, 1'd0, 1'd0, 1'd0,
 	1'd1, 1'd0, 1'd1, 1'd1, 1'd1, 1'd1, 1'd0, 1'd0,
 	1'd0, 1'd1, 1'd0, 1'd0, 1'd0, 1'd0, 1'd0, 1'd0,
@@ -522,7 +527,8 @@ module interleaver_set #(
 	1'd0, 1'd1, 1'd0, 1'd0, 1'd0, 1'd1, 1'd1, 1'd0,
 	1'd0, 1'd1, 1'd1, 1'd1, 1'd1, 1'd1, 1'd0, 1'd0,
 	1'd0, 1'd1, 1'd0, 1'd0, 1'd0, 1'd1, 1'd1, 1'd1} : 
-	((p/z)==2&&(fo*z)==256)? 
+  
+  ((p/z)==2&&(fo*z)==256)? //This is also for MNIST
 	'{ 1'd1, 1'd1, 1'd1, 1'd0, 1'd0, 1'd1, 1'd0, 1'd1,
 	1'd0, 1'd0, 1'd1, 1'd1, 1'd1, 1'd1, 1'd0, 1'd0,
 	1'd1, 1'd1, 1'd0, 1'd1, 1'd0, 1'd0, 1'd0, 1'd0,
@@ -554,10 +560,9 @@ module interleaver_set #(
 	1'd1, 1'd1, 1'd1, 1'd0, 1'd1, 1'd0, 1'd0, 1'd0,
 	1'd1, 1'd0, 1'd1, 1'd0, 1'd1, 1'd0, 1'd0, 1'd0,
 	1'd1, 1'd1, 1'd1, 1'd1, 1'd1, 1'd0, 1'd0, 1'd1,
-	1'd1, 1'd0, 1'd1, 1'd0, 1'd0, 1'd0, 1'd0, 1'd1} : '{1'b0}
-
-	// For every sweep from 0 to fo-1, there is a starting vector which is z elements long, where each element can take values from 0 to p/z-1
-	// So total size of sweepstart is fo*z elements of log(p/z) bits each. The whole thing can be psuedo-randomly generated in Python, then passed
+	1'd1, 1'd0, 1'd1, 1'd0, 1'd0, 1'd0, 1'd0, 1'd1} :
+  
+  '{1'b0} //Dummy case
 )(
 	input [$clog2(fo*p/z)-1:0] cycle_index, //log of total number of cycles to process a junction = log(no. of weights / z)
 	// [Eg: Here total no. of cycles to process a junction = 8, so cycle_index is 3b. It goes as 000 -> 001 -> ... -> 111]

@@ -17,18 +17,13 @@ sigmoid_sigmoidprime_table.v		// Look-up table for sigmoid and sigmoid prime fun
 
 
 
+NOTES:			
 Manual override required:
-
 Sigmoid and sigmoid prime files, if bit widths are changed
-
 Interleaver file, if interleaver parameters are changed. Also comment out higher m else if statements inside r_dither and w_dither in case of any issue while running smaller DNNs
 
-
 Constraints:
-
 p/z >= 2
-
 fo >= 2
-
 z >= fi [todo] add FFs for partial add to alleviate this
 
