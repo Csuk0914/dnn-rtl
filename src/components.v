@@ -2,6 +2,8 @@
 `timescale 1ns/100ps
 
 // Custom made signed multiplier where input and outputs all have same bit width
+// This is achieved by restricting one of the inputs to [0-1]
+//[todo] Extend to [-1,1]
 //[todo] a and d have to be between 0-1 to preserve int_bits, frac_bits. Can this be changed?
 module multiplier #(
 	parameter width = 16,
