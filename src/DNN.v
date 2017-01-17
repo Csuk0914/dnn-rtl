@@ -1,4 +1,4 @@
-// DRP sparse neural network
+// Sparse interleaved neural network
 // Created by Yinan Shao
 // Edits by Sourya Dey
 
@@ -12,7 +12,7 @@
 //`define eta 1 //Change learning rate from a parameter to a input of the DNN 
 //`define lamda 0.995 //Use for simulation
 `define lamda 1 //Use for synthesis
-`define cost_type 0 //xent cost
+`define cost_type 0 //0 for quadcost, 1 for xentcost
 
 // Depending on the no. of hidden layers desired, mark only 1 of the following as 1, others as 0
 // Total no. of layers (L) = No. of hidden layers + 2
