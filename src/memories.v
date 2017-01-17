@@ -1,7 +1,7 @@
 // This file contains a number of different types of memories
 `timescale 1ns/100ps
 
-//basic signle port memory module
+//basic single port memory module
 module memory #(
 	parameter depth = 2, //No. of cells
 	parameter width = 16 //No. of bits in each cell
@@ -157,9 +157,8 @@ module dual_port_memory #(
 	integer i;
 	initial begin
 	#0.1;
-	// for weight memory initial it to glorot gaussian distribution
-	// u = 0, sigma = 1/(fi+fo)
-	//Marsaglia and Bray method to generate the random number following Gaussian distribution
+	// for weight memory, initialize it to glorot normal distribution with mu = 0, sigma = 2/(fi+fo)
+	// Marsaglia and Bray method to generate the random number following Gaussian distribution
 		if(fi != 0) begin
 			for (i = 0; i < depth; i = i + 1) begin //
 				if((fi+fo)==136)
@@ -168,7 +167,7 @@ module dual_port_memory #(
 					#0.1 mem[i] = MNIST_tb.memL2[($random%1000+1000)];
 			end
 		end
-		// for else memory initial it to 0 value
+		// for other memories, initialize to 0 value by passing parameter fi=0 during instantiation
 		else begin
 			for (i = 0; i < depth; i = i + 1) begin //
 				mem[i] = 0;//($random%2)? $random%(2**23):-$random%(2**23);
