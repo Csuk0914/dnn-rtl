@@ -40,11 +40,11 @@ module input_layer_block #(
 	wire [(z+z/fi)*$clog2(p*fo/z)-1:0] wb_addrA, wb_addrB;	//WBM address
 
 // Datapath signals: MUXes, memories, processor sets
-	wire [width_in*z-1:0] act0_FF, act0_UP; //8b act values
+	wire [width_in*z-1:0] act0_FF, act0_UP; //width_in bit activation values
 	wire [width*z-1:0] act0_FF_in, act0_UP_in; //extended to width bits act values for processor set usage
 	wire [width*z-1:0] w, w_UP;	//old and new weights
 	wire [width*z/fi-1:0] b, b_UP; //old and new biases
-	wire [width_in*collection*z-1:0] act0_mem_in, act_mem_out; //act memory in/out - 0 or 1
+	wire [width_in*collection*z-1:0] act0_mem_in, act_mem_out; //act memory in/out
 	wire [width_in*z-1:0] act_rFF_raw, act_rUP_raw;	//activation output after collection selected
 
 
