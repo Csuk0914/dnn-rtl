@@ -138,6 +138,28 @@ module r_dither #( //Take single number cycle index input and calculates its rea
 			7: r_i = {cycle_index_i[$clog2(fo*p)-1:3], 3'd4};
 		endcase
 
+		// IMPORTANT: Sometimes, when running a smaller DNN, the part selection here can be small to big, i.e. something like cycle_index_i[3:4]
+		// This might give errors in Vivado, so code sections for large values of m may need to be commented out
+		else if (m == 16)
+		case (cycle_index_i[$clog2(m)-1:0])
+			0: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd1};
+			1: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd6};
+			2: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd8};
+			3: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd9};
+			4: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd13};
+			5: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd4};
+			6: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd2};
+			7: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd14};
+			8: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd10};
+			9: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd7};
+			10: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd15};
+			11: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd11};
+			12: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd3};
+			13: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd0};
+			14: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd5};
+			15: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd12};
+		endcase
+		
 		else if (m == 64)
 		case (cycle_index_i[$clog2(m)-1:0])
 			0: r_i = {cycle_index_i[$clog2(fo*p)-1:6], 6'd43};
@@ -337,27 +359,6 @@ module r_dither #( //Take single number cycle index input and calculates its rea
 			126: r_i = {cycle_index_i[$clog2(fo*p)-1:7], 7'd113};
 			127: r_i = {cycle_index_i[$clog2(fo*p)-1:7], 7'd77};
 		endcase
-		// IMPORTANT: Sometimes, when running a smaller DNN, the part selection here can be small to big, i.e. something like cycle_index_i[3:4]
-		// This might give errors in Vivado, so this will need to be commented out
-		/*else if (m == 16)
-		case (cycle_index_i[$clog2(m)-1:0])
-			0: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd1};
-			1: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd6};
-			2: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd8};
-			3: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd9};
-			4: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd13};
-			5: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd4};
-			6: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd2};
-			7: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd14};
-			8: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd10};
-			9: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd7};
-			10: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd15};
-			11: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd11};
-			12: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd3};
-			13: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd0};
-			14: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd5};
-			15: r_i = {cycle_index_i[$clog2(fo*p)-1:4], 4'd12};
-		endcase*/
 	end
 endmodule
 
@@ -399,6 +400,28 @@ module w_dither #( //Take RP output and calculate final DRP output
 			5: w_i = {RP_i[$clog2(fo*p)-1:3], 3'd1};
 			6: w_i = {RP_i[$clog2(fo*p)-1:3], 3'd6};
 			7: w_i = {RP_i[$clog2(fo*p)-1:3], 3'd4};
+		endcase
+		
+		// IMPORTANT: Sometimes, when running a smaller DNN, the part selection here can be small to big, i.e. something like cycle_index_i[3:4]
+		// This might give errors in Vivado, so code sections for large values of m may need to be commented out
+		else if (m == 16)
+		case (RP_i[$clog2(m)-1:0])
+			0: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd5};
+			1: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd8};
+			2: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd4};
+			3: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd9};
+			4: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd0};
+			5: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd13};
+			6: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd10};
+			7: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd14};
+			8: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd11};
+			9: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd7};
+			10: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd1};
+			11: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd12};
+			12: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd2};
+			13: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd15};
+			14: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd3};
+			15: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd6};
 		endcase
 		
 		else if (m == 64)
@@ -600,26 +623,5 @@ module w_dither #( //Take RP output and calculate final DRP output
 			126: w_i = {RP_i[$clog2(fo*p)-1:7], 7'd55};
 			127: w_i = {RP_i[$clog2(fo*p)-1:7], 7'd35};
 		endcase
-		// IMPORTANT: Sometimes, when running a smaller DNN, the part selection here can be small to big, i.e. something like cycle_index_i[3:4]
-		// This might give errors in Vivado, so this will need to be commented out
-		/*else if (m == 16)
-		case (RP_i[$clog2(m)-1:0])
-			0: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd5};
-			1: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd8};
-			2: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd4};
-			3: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd9};
-			4: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd0};
-			5: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd13};
-			6: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd10};
-			7: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd14};
-			8: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd11};
-			9: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd7};
-			10: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd1};
-			11: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd12};
-			12: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd2};
-			13: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd15};
-			14: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd3};
-			15: w_i = {RP_i[$clog2(fo*p)-1:4], 4'd6};
-		endcase*/
 	end
 endmodule
