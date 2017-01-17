@@ -146,7 +146,12 @@ module input_layer_block #(
 	genvar gv_i;	
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
 	begin: processor_in
-	//act0_FF and act0_UP are 1b values. To convert to width bits, they should be the LSB of the integer part. [Eg: For [15:0] = 1,5,10, they should occupy bit 10]
+	/* Take the example of MNIST:
+	* Original inputs are in the range 0-1 with 8b precision. So width_in=8
+	* These get multiplied by 256 to get 8b numbers in the range 0-255. This faciliates data feeding
+	* In the RTL, these need to get converted back to original 0-1 range, and then to width bits with int_bits and frac_bits (Eg: 1+5+10 = 16b)
+	* Obviously the sign bit is always 0 and all the int_bits are 0 (since integer part is always 0) => Total (int_bits+1) 0s
+	* The 1st 8 fract_bits are the 8b input data and remaining frac_bits are 0 */
 		assign act0_FF_in[width*(gv_i+1)-1:width*gv_i] = {{(int_bits+1){1'b0}}, act0_FF[width_in*(gv_i+1)-1:gv_i*width_in], {(frac_bits-width_in){1'b0}}};
 		assign act0_UP_in[width*(gv_i+1)-1:width*gv_i] = {{(int_bits+1){1'b0}}, act0_UP[width_in*(gv_i+1)-1:gv_i*width_in], {(frac_bits-width_in){1'b0}}};
 	end
