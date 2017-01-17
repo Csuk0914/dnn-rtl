@@ -109,7 +109,7 @@ module input_layer_block #(
 // Memories
 	mem_collection #( //AMp collections
 		.collection(collection), 
-		.width(width_in), //since all values come from external, i.e. 0 or 1
+		.width(width_in),
 		.depth(p/z), 
 		.z(z)
 	) AMp_coll (
