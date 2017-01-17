@@ -7,7 +7,7 @@ module interleaver_set #(
 	parameter p  = 32,
 	parameter n  = 8,
 	parameter z  = 8,
-  /* For the nexy parameter, note:
+  /* For the next parameter, note:
   * For every sweep from 0 to fo-1, there is a starting vector which is z elements long, where each element can take values from 0 to p/z-1
 	* So total size of sweepstart is fo*z elements of log(p/z) bits each. The whole thing can be psuedo-randomly generated in Python, then passed
   * Here there are different cases defined for sweepstart - some small, and some very large (for MNIST) */
