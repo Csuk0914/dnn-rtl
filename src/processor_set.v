@@ -269,19 +269,23 @@ module UP_processor_set #(
 	begin : all_update_set
 		multiplier #(.width(width),.int_bits(int_bits)) mul_eta(delta[gv_i], eta, delta_b[gv_i]);
 		adder #(.width(width)) update_b (b[gv_i], delta_b[gv_i], b_new[gv_i]);
-		assign b_UP[gv_i] = (b[gv_i]<(2**(width-1)-1)*lamda||
-					b[gv_i]>(2**(width-1)-1)*(2-lamda))? 
-				b_new [gv_i] : b[gv_i]; //If bias is outside limits allowed by width bits, then do NOT update
+		assign b_UP[gv_i] = (b_new[gv_i]<(2**(width-1)-1)*lamda||
+					b_new[gv_i]>(2**(width-1)-1)*(2-lamda))? 
+			b_new [gv_i] : b[gv_i]; //If new bias is outside limits allowed by width bits, then do NOT update
 
 		for (gv_j = 0; gv_j<fi; gv_j = gv_j + 1)
 		begin :weight_update
 			multiplier #(.width(width),.int_bits(int_bits)) mul_a_d(delta_b[gv_i], a[gv_i*fi+gv_j], delta_w[gv_i*fi+gv_j]);
 			adder #(.width(width)) update_w(w[gv_i*fi+gv_j], delta_w[gv_i*fi+gv_j], w_new[gv_i*fi+gv_j]);
+			
+			//Regularization:
+			//multiplier #(.width(width),.int_bits(int_bits)) mul_a_d1(Lamda, w_new [gv_i*fi+gv_j], w_UP[gv_i*fi+gv_j]);
+			//assign w_UP[gv_i*fi+gv_j] = w_new [gv_i*fi+gv_j];
+			
+			// If new weight is outside limits allowed by width bits, then do NOT update
 			assign w_UP[gv_i*fi+gv_j] = (w_new[gv_i*fi+gv_j]<(2**(width-1)-1)*lamda ||
 							w_new[gv_i*fi+gv_j]>(2**(width-1)-1)*(2-lamda))? 
 				w_new [gv_i*fi+gv_j] : w [gv_i*fi+gv_j];
-			//multiplier #(.width(width),.int_bits(int_bits)) mul_a_d1(Lamda, w_new [gv_i*fi+gv_j], w_UP[gv_i*fi+gv_j]);
-			//assign w_UP[gv_i*fi+gv_j] = w_new [gv_i*fi+gv_j];
 		end
 	end
 	endgenerate
