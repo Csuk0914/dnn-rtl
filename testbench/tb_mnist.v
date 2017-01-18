@@ -98,11 +98,15 @@ module MNIST_tb #(
 	////////////////////////////////////////////////////////////////////////////////////
 	wire cycle_clk;
 	wire [$clog2(cpc)-1:0] cycle_index;
-	integer num_train = 0;
-	integer total_error = 0;
-	real error_rate = 0;
+	integer num_train = 0; //Number of the current training case
 	integer epoch = 0;
-	reg tc_error = 0; //Flags if a particular training case gives error
+	reg tc_error = 0; //Flags if a particular training case gives error (in any of its neurons)
+	integer total_error = 0; //Total number of tc_errors accumulated over training cases
+	real error_rate = 0;
+	/* Let e = sum over all output neurons |y_out-actL|, where actL is the unthresholded output of the last layer
+	* Then e is basically giving the L1 norm over all output neurons of a particular training case
+	* error_rate computes average of e over the last 100 training cases, i.e. moving average */
+	
 
 	cycle_block_counter #(
 		.cpc(cpc)
@@ -113,6 +117,10 @@ module MNIST_tb #(
 		.count(cycle_index)
 	);
 	assign sel_network = cycle_index[$clog2(cpc-2)-1:0]-2;
+	/* cycle_index goes from 0-17, so its 4 LSB go from 0-15 then 0-1
+	* But nothing happens in the last 2 cycles since pipeline delay is 2
+	* So take values of cycle_index from 0-15 and subtract 2 to make its 4 LSB go from 14-15, then 0-13
+	* Note that the jumbled order isn't important as long as all inputs from 0-15 are fed */
 	
 	initial begin
 		//file = $fopen("results.dat");
@@ -154,9 +162,10 @@ module MNIST_tb #(
 
 	always @(posedge clk) begin
 		if (cycle_index > 1 && a_out != y_out) tc_error = 1; //Since output is obtained starting from cycle 2 up till cycle (cpc-1)
-		if( cycle_index > 1) 
-			if(y_out) error_rate = error_rate + y_out - DNN.actL/(2**frac_bits);
-			else error_rate = error_rate + DNN.actL/(2**frac_bits);
+		if( cycle_index > 1)
+			// Need to divide actL by 2**frac_bits to get result between 0 and 1
+			if(y_out) error_rate = error_rate + y_out - DNN.actL/(2**frac_bits); //y_out = 1, so |y_out-actL| = 1-actL
+			else error_rate = error_rate + DNN.actL/(2**frac_bits); //y_out = 0, so |y_out-actL| = actL
 	end
 
 
