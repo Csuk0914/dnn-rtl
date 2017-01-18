@@ -4,16 +4,6 @@
 
 `timescale 1ns/100ps
 
-`define neuron '{16, 8, 4}
-`define fi '{4, 4}
-`define fo '{2, 2}
-`define z '{8, 4}
-`define L 3
-//`define eta 1 //Change learning rate from a parameter to a input of the DNN 
-//`define lamda 0.995 //Use for simulation
-`define lamda 1 //Use for synthesis
-`define cost_type 0 //0 for quadcost, 1 for xentcost
-
 // Depending on the no. of hidden layers desired, mark only 1 of the following as 1, others as 0
 // Total no. of layers (L) = No. of hidden layers + 2
 `define No_hidden_layer 0
@@ -26,15 +16,15 @@ module DNN #(
 	parameter width_in = 8, //input data width, i.e. no. of bits each input neuron can take in
 	parameter int_bits = 5, //no. of integer bits
 	parameter frac_bits = 10, //no. of fractional part bits
-	parameter L = `L, //Total no. of layers (including input and output)
+	parameter L = 3, //Total no. of layers (including input and output)
 	// Parameter arrays need to be [31:0] for compilation
-	parameter [31:0] fo [0:L-2] = `fo, //Fanout of all layers except for output
-	parameter [31:0] fi [0:L-2]  = `fi, //Fanin of all layers except for input
-	parameter [31:0] z [0:L-2]  = `z, //Degree of parallelism of all junctions. No. of junctions = L-1
-	parameter [31:0] n [0:L-1] = `neuron, //No. of neurons in every layer
+	parameter [31:0] fo [0:L-2] = '{2, 2}, //Fanout of all layers except for output
+	parameter [31:0] fi [0:L-2]  = '{4, 4}, //Fanin of all layers except for input
+	parameter [31:0] z [0:L-2]  = '{8, 4}, //Degree of parallelism of all junctions. No. of junctions = L-1
+	parameter [31:0] n [0:L-1] = '{16, 8, 4}, //No. of neurons in every layer
 	//parameter eta = `eta, //eta is NOT a parameter any more. See input section for details
-	parameter lamda = `lamda, //L2 regularization
-	parameter cost_type = `cost_type, //0 for quadcost, 1 for xentcost
+	parameter lamda = 1, //L2 regularization
+	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
 	parameter cpc =  n[0] * fo[0] / z[0] + 2	//clocks per cycle block = Weights/parallelism. 2 extra needed because FF is 3 stage operation
 	//Same cpc in different junctions is fine, cpc has to be a (power of 2) + 2
 	// [todo future] ADD support for different cpc
