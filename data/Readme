@@ -1,0 +1,3 @@
+The file train_input.dat is too big for the repo
+There's a zip file: dnn-rtl/data/train_input.dat.zip
+Before running the code, unzip it in your local machine and put in dnn-rtl/data folder
