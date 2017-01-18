@@ -13,6 +13,7 @@ module MNIST_tb #(
 	parameter [31:0]n[0:L-1] = '{1024, 64, 16},
 	parameter Eta = 1,
 	parameter lamda = 0.25,
+	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
 	// Testbench parameters:
 	parameter training_cases = 50000,
 	//parameter test_cases = 8,
@@ -46,7 +47,8 @@ module MNIST_tb #(
 		.z(z), 
 		.n(n), 
 		//.eta(eta), 
-		.lamda(lamda)
+		.lamda(lamda),
+		.cost_type(cost_type)
 	) DNN (
 		.a_in(a_in),
 		.y_in(y_in), 
