@@ -156,13 +156,13 @@ module dual_port_memory #(
 	//[todo] Find how to initialize FPGA mem and delete initial
 	integer i;
 	initial begin
-	#0.1;
-	// for weight memory, initialize it to glorot normal distribution with mu = 0, sigma = 2/(fi+fo)
-	// Marsaglia and Bray method to generate the random number following Gaussian distribution
+		#0.1; //MNIST_tb.memL1 and L2 are read at t=0. So wait a small while before reading from them
+		// for weight memory, initialize it to glorot normal distribution with mu = 0, sigma = 2/(fi+fo)
+		// Marsaglia and Bray method to generate the random number following Gaussian distribution
 		if(fi != 0) begin
 			for (i = 0; i < depth; i = i + 1) begin //
 				if((fi+fo)==136)
-					#0.1 mem[i] = MNIST_tb.memL1[($random%1000+1000)];
+					#0.1 mem[i] = MNIST_tb.memL1[($random%1000+1000)]; //apparently $random%1000 gives a number in +/-999, so adding 1000 gives a number in [1,1999] as per the data file requirement
 				else if ((fi+fo)==40)
 					#0.1 mem[i] = MNIST_tb.memL2[($random%1000+1000)];
 			end
