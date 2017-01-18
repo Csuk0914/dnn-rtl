@@ -32,7 +32,7 @@ module DNN #(
 	parameter [31:0] fi [0:L-2]  = `fi, //Fanin of all layers except for input
 	parameter [31:0] z [0:L-2]  = `z, //Degree of parallelism of all junctions. No. of junctions = L-1
 	parameter [31:0] n [0:L-1] = `neuron, //No. of neurons in every layer
-	//parameter eta = `eta, //Learning rate
+	//parameter eta = `eta, //eta is NOT a parameter any more. See input section for details
 	parameter lamda = `lamda, //L2 regularization
 	parameter cost_type = `cost_type, //0 for quadcost, 1 for xentcost
 	parameter cpc =  n[0] * fo[0] / z[0] + 2	//clocks per cycle block = Weights/parallelism. 2 extra needed because FF is 3 stage operation
@@ -43,6 +43,7 @@ module DNN #(
 	input [z[L-2]/fi[L-2]-1:0] y_in, //Load ideal outputs from outside. z[L-2] weights processed together in last junction => z[L-2]/fi[L-2] ideal outputs together, each is 1b 
 	input [width-1:0] eta_in, //learning rate
 	// Note that eta is an input, so each training sample can have its own eta. However, all the LAYERS HAVE THE SAME eta for a particular sample
+	// By making eta an input, the problem of random weight updates after reset is solved, because each eta is introduced with input data
 	input clk,
 	input reset, //active high
 	output [z[L-2]/fi[L-2]-1:0] y_out, //ideal output (y_in after going through all layers)
