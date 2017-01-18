@@ -2,6 +2,8 @@
 `timescale 1ns/100ps
 
 // Custom made signed multiplier where input and outputs all have same bit width
+// This is achieved by restricting one of the inputs to [0-1]
+//[todo] Extend to [-1,1]
 //[todo] a and d have to be between 0-1 to preserve int_bits, frac_bits. Can this be changed?
 module multiplier #(
 	parameter width = 16,
@@ -14,7 +16,9 @@ module multiplier #(
 	
 	wire [2*width-2:0] z_raw; //1,10,20. Overall 1 bit less because sign bit doesn't get replicated
 	assign z_raw = (a[width-2:0] - a[width-1] * 2**(width-1)) * (b[width-2:0] - b[width-1] * 2**(width-1)); //Subtraction converts signed representation to actual number
-	assign z = {z_raw[2*width-2],z_raw[2*width-2-int_bits-1:width-int_bits-1]};
+	assign z = (z_raw[2*width-2]==0 && z_raw[2*width-3:2*width-int_bits-2]!=0) ? {1'b0, {(width-1) {1'b1}}} : 
+		(z_raw[2*width-2]==1 && z_raw[2*width-3:2*width-int_bits-2]!={(int_bits) {1'b1}})? {1'b1, {(width-1){1'b0}}} : 
+		{z_raw[2*width-2],z_raw[2*width-2-int_bits-1:width-int_bits-1]} + z_raw[width-int_bits-2]; //round to the nearest
 	/* To understand this, use the fact that MSB of z_raw = 2*width-2 and int_bits from MSB are discarded because multiplier is only used for w*a and w*d.
 	   Both a and d are <1, so we only need int_bits LSB [Eg: bits 24-20] of the integer part, since int_bits MSB [Eg: bits 29-24] of integer part are always 00000 (pos) or 11111 (neg)
 	   We also take MSB = sign and frac_bits MSB of frac part [Eg: Bits 19-10]. We discard frac_bits LSB [Eg: Bits 9-0]. Note that frac_bits = width-int_bits-1 */
@@ -52,6 +56,7 @@ module multiplier_set #(
 endmodule
 
 
+//[todo] increase number of bits to prevent overflow
 module adder #(
 	parameter width = 16
 )(
@@ -60,6 +65,14 @@ module adder #(
 	output [width-1:0] z
 );
 	assign z = a+b; //(a[14:0] - a[15] * 2 ** 15) + (b[14:0] - b[15] * 2 ** 15);
+
+	always @(a, b)
+		if(a[width-1]==b[width-1] && z[width-1]!=b[width-1]) begin
+			$display("Overflow in adder.");
+			$stop;
+		end 
+
+
 endmodule
 
 
@@ -93,7 +106,7 @@ module costterm_set #(
 
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
 	begin : cost_adder_set
-		adder cost_adder(a[gv_i], y[gv_i], costterm[gv_i]);
+		adder #(.width(width))cost_adder(a[gv_i], y[gv_i], costterm[gv_i]);
 	end
 	endgenerate
 endmodule
@@ -132,7 +145,7 @@ module cycle_block_counter #(
 
 	always @(posedge clk) begin
 		if (reset) begin
-			count <= cpc-1; //count stays at highest value during reset, so that it becomes 0 on next clk
+			count <= 0;
 			cycle_clk = 0;
 		end else begin //reset is off
 			if(count == cpc-1) begin
@@ -217,7 +230,7 @@ module DFF #(
 	input [width-1:0] d,
 	output reg [width-1:0] q
 );
-	always @(posedge clk) begin
+	always @(posedge clk, reset) begin
 		if (reset)
 			q <= {width{1'b0}};
 		else

@@ -2,14 +2,16 @@
 `timescale 1ns/100ps
 
 //This module computes actn, i.e. z activations for the succeeding layer
+//Multiplication aw = act*wt happens here, the remaining additions and looking up activation function is done in the submodule sigmoid_function
 module FF_processor_set #(
 	parameter fo = 2,
 	parameter fi  = 4,
 	parameter p  = 16,
 	parameter n  = 8,
 	parameter z  = 8,
-	parameter width = 16,
-	parameter int_bits = 5
+	parameter width = 16, 
+	parameter int_bits = 5, 
+	parameter frac_bits = 10
 )(
 	input clk,
 	input [width*z -1:0] a_package, //Process z input activations together, each width bits
@@ -58,7 +60,7 @@ module FF_processor_set #(
 	generate for (gv_i = 0; gv_i<(z/fi); gv_i = gv_i + 1)
 	begin : sigmoid_function_set
 		sigmoid_function #(
-			.fo(fo), .fi(fi), .p(p), .n(n), .z(z), .width(width)
+			.fo(fo), .fi(fi), .p(p), .n(n), .z(z), .width(width), .frac_bits(frac_bits), .int_bits(int_bits)
 		) s_function (
 			.clk(clk),
 			.aw_package(aw_package[gv_i]),
@@ -71,13 +73,17 @@ module FF_processor_set #(
 endmodule
 
 // Submodule of FF processor set
+// [todo] generalize this for other activations
 module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	parameter fo = 2,
 	parameter fi  = 4,
 	parameter p  = 16,
 	parameter n  = 8,
 	parameter z  = 8,
-	parameter width =16
+	parameter width =16,
+	parameter width_TA = width + $clog2(fi), //width of tree adder is not compromised
+	parameter int_bits = 5, 
+	parameter frac_bits = 10
 )(
 	input clk,
 	// All the following parameters are for 1 neuron
@@ -95,12 +101,14 @@ module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	pz[4] = pz[1]+pz[0], pz[5]=pz[3]+pz[2]
 	Finally pz[6] = pz[4]+pz[5] */
 	
-	wire [width-1:0] partial_s [fi*2-2:0];
+	wire [width_TA-1:0] partial_s [fi*2-2:0];
+	wire [width_TA-1:0] s_raw;
 	wire [width-1:0] s;
 	genvar gv_i, gv_j;
 	generate for (gv_i = 0; gv_i<fi; gv_i = gv_i + 1)
 	begin : unpackage
-		assign partial_s[gv_i] = aw_package[width*(gv_i+1)-1:width*gv_i];
+		// The following line sign extends 'width bit' aw to 'width_TA bit'
+		assign partial_s[gv_i] = {{$clog2(fi) {aw_package[width*(gv_i+1)-1]}}, aw_package[width*(gv_i+1)-1:width*gv_i]};
 	end
 	endgenerate
 	// [Eg Now partial_s[3,2,1,0] (each 16b) = aw_package[63:48,47:32,31:16,15:0]]
@@ -109,19 +117,22 @@ module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	begin : tree_adder
 		for (gv_j = 0; gv_j < (fi/(2**gv_i)); gv_j = gv_j + 1)
 		begin : parallel_adder
-			if (gv_i<=2) adder #(.width(width)) adder ( partial_s[fi*2 - fi*2**(2-gv_i) + 2*gv_j],
+			if (gv_i<=2) adder #(.width(width_TA)) adder ( partial_s[fi*2 - fi*2**(2-gv_i) + 2*gv_j],
 								partial_s[fi*2 - fi*2**(2-gv_i) + 2*gv_j + 1],
 								partial_s[2**($clog2(fi)+1) - 2**($clog2(fi)+1-gv_i) + gv_j] );
-			else adder #(.width(width)) adder ( partial_s[fi*2 - fi/2**(gv_i-2) + 2*gv_j],
+			else adder #(.width(width_TA)) adder ( partial_s[fi*2 - fi/2**(gv_i-2) + 2*gv_j],
 					partial_s[fi*2 - fi/2**(gv_i-2) + 2*gv_j + 1],
 					partial_s[2**($clog2(fi)+1) - 2**($clog2(fi)+1-gv_i) + gv_j] );
 		end	
 	end
 	endgenerate
 
-	adder #(.width(width)) bias_adder (partial_s[fi*2-2], b, s);
-	sigmoid_t #(.width(width)) s_table (clk, s, sigmoid);
-	sig_prime #(.width(width)) sp_table (clk, s, sp);
+	adder #(.width(width_TA)) bias_adder (partial_s[fi*2-2], {{$clog2(fi) {b[width-1]}}, b}, s_raw); // The 2nd input is a sign extension of 'width bit' bias to 'width_TA bit'
+	assign s = (s_raw[width_TA-1]==0 && s_raw[width_TA-2:width-1]!=0) ? {1'b0, {(width-1){1'b1}}} : 
+		(s_raw[width_TA-1]==1 && s_raw[width_TA-2:width-1]!={(width_TA-width) {1'b1}}) ? {1'b1, {(width-1){1'b0}}} : 
+		s_raw[width-1:0];
+	sigmoid_t #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) s_table (clk, s, sigmoid);
+	sig_prime #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) sp_table (clk, s, sp);
 endmodule
 
 // __________________________________________________________________________________________________________ //
@@ -135,6 +146,7 @@ module BP_processor_set #(
 	parameter n  = 8,
 	parameter z  = 8,
 	parameter width = 16,
+	parameter frac_bits = 10,
 	parameter int_bits = 5
 )(
 	input [width*z/fi-1:0] deltan_package, //input deln values
@@ -198,10 +210,11 @@ module UP_processor_set #(
 	parameter width =16,
 	parameter int_bits = 5,
 	parameter frac_bits = 10, //No. of bits in fractional part
-	parameter eta = 0.05,
+	//parameter eta = 0.05,
 	parameter lamda = 1
 )(
 	// Note that updates are done for z weights in a junction and n neurons in succeeding layer
+	input [width-1:0] eta,
 	inout [width*z/fi-1:0] delta_package, //deln
 	input [width*z-1:0] w_package, //Existing weights whose values will be updated
 	input [width*z/fi-1:0] b_package, //Existing bias of n neurons whose values will be updated
@@ -210,8 +223,8 @@ module UP_processor_set #(
 	output [width*z/fi-1:0] b_UP_package //Output biases after update
 );
 
-	reg [width-1:0] Eta = -eta*2**frac_bits;
-	//reg [width-1:0] Lamda = lamda*2**frac_bits;
+	//reg [width-1:0] Eta = -eta*2**frac_bits;
+	reg [width-1:0] Lamda = lamda*2**frac_bits;
 	
 	// Unpack
 	wire [width-1:0] a [z-1:0];
@@ -254,18 +267,24 @@ module UP_processor_set #(
 
 	generate for (gv_i = 0; gv_i<z/fi; gv_i = gv_i + 1)
 	begin : all_update_set
-		multiplier #(.width(width),.int_bits(int_bits)) mul_eta(delta[gv_i], Eta, delta_b[gv_i]);
+		multiplier #(.width(width),.int_bits(int_bits)) mul_eta(delta[gv_i], eta, delta_b[gv_i]);
 		adder #(.width(width)) update_b (b[gv_i], delta_b[gv_i], b_new[gv_i]);
-		assign b_UP[gv_i] = (b[gv_i]<(2**(width-1)-1)*lamda||
-					b[gv_i]>(2**(width-1)-1)*(2-lamda))? 
-				b_new [gv_i] : b[gv_i]; //If bias is outside limits allowed by width bits, then do NOT update
+		assign b_UP[gv_i] = (b_new[gv_i]<(2**(width-1)-1)*lamda||
+					b_new[gv_i]>(2**(width-1)-1)*(2-lamda))? 
+			b_new [gv_i] : b[gv_i]; //If new bias is outside limits allowed by width bits, then do NOT update
 
 		for (gv_j = 0; gv_j<fi; gv_j = gv_j + 1)
 		begin :weight_update
 			multiplier #(.width(width),.int_bits(int_bits)) mul_a_d(delta_b[gv_i], a[gv_i*fi+gv_j], delta_w[gv_i*fi+gv_j]);
 			adder #(.width(width)) update_w(w[gv_i*fi+gv_j], delta_w[gv_i*fi+gv_j], w_new[gv_i*fi+gv_j]);
-			assign w_UP[gv_i*fi+gv_j] = (w[gv_i*fi+gv_j]<(2**(width-1)-1)*lamda||
-							w[gv_i*fi+gv_j]>(2**(width-1)-1)*(2-lamda))? 
+			
+			//Regularization:
+			//multiplier #(.width(width),.int_bits(int_bits)) mul_a_d1(Lamda, w_new [gv_i*fi+gv_j], w_UP[gv_i*fi+gv_j]);
+			//assign w_UP[gv_i*fi+gv_j] = w_new [gv_i*fi+gv_j];
+			
+			// If new weight is outside limits allowed by width bits, then do NOT update
+			assign w_UP[gv_i*fi+gv_j] = (w_new[gv_i*fi+gv_j]<(2**(width-1)-1)*lamda ||
+							w_new[gv_i*fi+gv_j]>(2**(width-1)-1)*(2-lamda))? 
 				w_new [gv_i*fi+gv_j] : w [gv_i*fi+gv_j];
 		end
 	end

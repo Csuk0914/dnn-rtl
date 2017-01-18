@@ -1,6 +1,7 @@
 // This file contains a number of different types of memories
+`timescale 1ns/100ps
 
-//basic signle port memory module
+//basic single port memory module
 module memory #(
 	parameter depth = 2, //No. of cells
 	parameter width = 16 //No. of bits in each cell
@@ -24,7 +25,7 @@ module memory #(
 	integer i;
 	initial begin
 		for (i = 0; i < depth; i = i + 1)
-			mem[i] = 0;
+			mem[i] = 0;//($random%2)? $random%(2**22):-$random%(2**22);
 		data_out = 0;
 	end
 endmodule
@@ -125,7 +126,9 @@ endmodule
 //basic dual port memory module
 module dual_port_memory #(
 	parameter depth = 2,
-	parameter width = 16
+	parameter width = 16, 
+	parameter fi = 0, 
+	parameter fo = 0
 )(
 	input clk,
 	input weA,
@@ -153,10 +156,25 @@ module dual_port_memory #(
 	//[todo] Find how to initialize FPGA mem and delete initial
 	integer i;
 	initial begin
-	for (i = 0; i < depth; i = i + 1)
-		mem[i] = 0;
-	data_outA = mem[addressA];
-	data_outB = mem[addressB];
+		#0.1; //MNIST_tb.memL1 and L2 are read at t=0. So wait a small while before reading from them
+		// for weight memory, initialize it to glorot normal distribution with mu = 0, sigma = 2/(fi+fo)
+		// Marsaglia and Bray method to generate the random number following Gaussian distribution
+		if(fi != 0) begin
+			for (i = 0; i < depth; i = i + 1) begin //
+				if((fi+fo)==136)
+					#0.1 mem[i] = MNIST_tb.memL1[($random%1000+1000)]; //apparently $random%1000 gives a number in +/-999, so adding 1000 gives a number in [1,1999] as per the data file requirement
+				else if ((fi+fo)==40)
+					#0.1 mem[i] = MNIST_tb.memL2[($random%1000+1000)];
+			end
+		end
+		// for other memories, initialize to 0 value by passing parameter fi=0 during instantiation
+		else begin
+			for (i = 0; i < depth; i = i + 1) begin //
+				mem[i] = 0;//($random%2)? $random%(2**23):-$random%(2**23);
+			end
+		end
+		data_outA = mem[addressA];
+		data_outB = mem[addressB];
 	end
 endmodule
 
@@ -164,7 +182,9 @@ endmodule
 module parallel_dual_port_mem #(
 	parameter z = 8,
 	parameter depth = 2,
-	parameter width = 16
+	parameter width = 16, 
+	parameter fi = 0, 
+	parameter fo = 0
 )(	
 	input clk,
 	input [z-1:0] weA,
@@ -198,7 +218,9 @@ module parallel_dual_port_mem #(
 	begin : parallel_mem
 		dual_port_memory #(
 			.depth(depth),
-			.width(width)
+			.width(width), 
+			.fi(fi), 
+			.fo(fo)
 		) dual_port_memory (
 			.clk(clk),
 			.addressA(addressA[gv_i]),
@@ -219,7 +241,9 @@ module dual_port_mem_collection #(
 	parameter collection = 5,
 	parameter z = 8,
 	parameter depth = 2,
-	parameter width = 16
+	parameter width = 16, 
+	parameter fi = 0, 
+	parameter fo = 0
 )(
 	input clk,
 	input [collection*z-1:0] weA_package,
@@ -257,7 +281,9 @@ module dual_port_mem_collection #(
 		parallel_dual_port_mem #(
 			.z(z), 
 			.width(width), 
-			.depth(depth)
+			.depth(depth), 
+			.fi(fi), 
+			.fo(fo)
 		) mem (
 			.clk(clk),
 			.addressA_package(addrA[gv_i]),

@@ -181,7 +181,7 @@ module hidden_layer_state_machine #( // This is state machinw, so it will input 
 	 	.p(p), 
 	 	.n(n), 
 	 	.z(z)
-	) inter (
+	) interleaver (
 		.cycle_index(cycle_index[$clog2(cpc-2)-1:0]), //if cpc = 3, then $clog2(cpc-2)-1 = -1. For Verilog, a[-1:0] is a syntax error. So cpc must be > 3
 		.memory_index_package(memory_index)
 	);
@@ -312,7 +312,7 @@ module act_sp_ctr #(
 			begin: act_we_one_cycle
 				assign act_we[gv_i][gv_j*z/fo+gv_k] = 
 					((cycle_index_delay<p/z*fo) && //check that there are clocks left in cycle
-					(gv_j==cycle_index_delay[$clog2(p/z)-1:0]) && //check that current clock is referencing correct part
+					(gv_j==cycle_index_delay[$clog2(p/z*fo/2)-1:0]) && //check that current clock is referencing correct part
 					(gv_i==w_pt) && (!reset))? 1: 0; //check that correct collection is selected and reset is off
 			end
 		end
@@ -396,11 +396,11 @@ module act_sp_ctr #(
 
 	// DM weB
 	generate for (gv_i = 0; gv_i<2; gv_i = gv_i + 1)
-		for (gv_j = 0; gv_j<fo; gv_j = gv_j + 1)
-			for (gv_k = 0; gv_k<(z/fo); gv_k = gv_k + 1)
-				assign d_weB_package[gv_i*z+gv_j*fo+gv_k] = 
+		for (gv_j = 0; gv_j<p/z*fo; gv_j = gv_j + 1)
+			for (gv_k = 0; gv_k<(z/(cpc-2)); gv_k = gv_k + 1)
+				assign d_weB_package[gv_i*z+gv_j*z/(cpc-2)+gv_k] = 
 				((cycle_index_d < cpc-2) &&
-				(gv_j==cycle_index_d[$clog2(fo)-1:0]) && //check for part match
+				(gv_j==cycle_index_d[$clog2(p/z*fo)-1:0]) && //check for part match
 				(gv_i==d_rBP_pt))? 1: 0;
 				// From the example in comments, weB of ~rBP_pt will be 0
 				// weB of rBP_pt will be 1 only after 1 clock delay, that is why we use cycle_index_d in the comparison, and not cycle_index
@@ -491,7 +491,7 @@ module input_layer_state_machine #(
 	 	.p(p), 
 	 	.n(n), 
 	 	.z(z)
-	) inter (
+	) interleaver (
 		.cycle_index(cycle_index[$clog2(cpc-2)-1:0]),
 		.memory_index_package(memory_index)
 	);
@@ -592,20 +592,35 @@ module act_ctr #(
 	end
 	endgenerate
 
-	generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1)
+	generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1) //choose collection out of collection collections
 	begin: act_we_collections
-		for (gv_j = 0; gv_j<fo; gv_j = gv_j + 1)
+		for (gv_j = 0; gv_j<fo; gv_j = gv_j + 1) //choose part out of fo parts in a collection
 		begin: act_we_one_collection
-			for (gv_k = 0; gv_k<(p/z*fo); gv_k = gv_k + 1)
+			for (gv_k = 0; gv_k<(z/fo); gv_k = gv_k + 1) //choose memory out of z/fo memories in a part
 			begin: act_we_one_cycle
-				assign act_we[gv_i][gv_j*p/z*fo+gv_k] = 
-					((cycle_index_delay<p/z*fo) && 
-					(gv_j==cycle_index_delay[$clog2(p/z)-1:0]) && 
-					(gv_i==w_pt) && (!reset))? 1: 0;
+				assign act_we[gv_i][gv_j*z/fo+gv_k] = 
+					((cycle_index_delay<p/z*fo) && //check that there are clocks left in cycle
+					(gv_j==cycle_index_delay[$clog2(p/z*fo/2)-1:0]) && //check that current clock is referencing correct part
+					(gv_i==w_pt) && (!reset))? 1: 0; //check that correct collection is selected and reset is off
 			end
 		end
 	end
 	endgenerate
+	
+	// generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1)
+	// begin: act_we_collections
+	// 	for (gv_j = 0; gv_j<fo; gv_j = gv_j + 1)
+	// 	begin: act_we_one_collection
+	// 		for (gv_k = 0; gv_k<(p/z*fo); gv_k = gv_k + 1)
+	// 		begin: act_we_one_cycle
+	// 			assign act_we[gv_i][gv_j*p/z*fo+gv_k] = 
+	// 				((cycle_index_delay<p/z*fo) && 
+	// 				(gv_j==cycle_index_delay[$clog2(p/z*fo/2)-1:0]) && 
+	// 				(gv_i==w_pt) && (!reset))? 1: 0;
+	// 		end
+	// 	end
+	// end
+	// endgenerate
 
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
 	begin: write_address_generator
