@@ -41,7 +41,8 @@ module DNN #(
 )(
 	input [width_in*z[0]/fo[0]-1:0] a_in, //Load activations from outside. z[0] weights processed together in first junction => z[0]/fo[0] activations together
 	input [z[L-2]/fi[L-2]-1:0] y_in, //Load ideal outputs from outside. z[L-2] weights processed together in last junction => z[L-2]/fi[L-2] ideal outputs together, each is 1b 
-	input [width-1:0] eta_in, 
+	input [width-1:0] eta_in, //learning rate
+	// Note that eta is an input, so each training sample can have its own eta. However, all the LAYERS HAVE THE SAME eta for a particular sample
 	input clk,
 	input reset, //active high
 	output [z[L-2]/fi[L-2]-1:0] y_out, //ideal output (y_in after going through all layers)
@@ -59,7 +60,7 @@ module DNN #(
 	So these signals remain same regardless of no. of hidden layers */
 	wire [width*z[0]/fi[0]-1:0] act1, sp1, d1; //z[0]/fi[0] is the no. of neurons processed in 1 cycle at the input of the black box, i.e. 1st hidden layer
 	wire [width*z[L-2]/fi[L-2]-1:0] actL, spL, dL; //z[L-2]/fi[L-2] is the no. of neurons processed in 1 cycle in the last layer, i.e. output of the black box
-	wire [width-1:0] eta1, eta2; //learn rate to different layer.
+	wire [width-1:0] eta1, eta2; //eta is same for all layers, but timestamps are different. eta1 is a delayed version of eta2, see below
 	
 	cycle_block_counter #(
 		.cpc(cpc)
@@ -130,7 +131,7 @@ module DNN #(
 	);
 
 //eta shift register
-	shift_reg #(
+	shift_reg #( //2nd junction gets updated first - L block cycles after input is fed
 		.width(width), 
 		.depth(L)
 	) eta_SR1 (
@@ -139,7 +140,7 @@ module DNN #(
 		.data_in(eta_in), 
 		.data_out(eta2));
 	
-	shift_reg #(
+	shift_reg #( //1st junction gets updated 1 block cycle after 2nd (using same eta)
 		.width(width), 
 		.depth(1)
 	) eta_SR2 (
