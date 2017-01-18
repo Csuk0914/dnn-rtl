@@ -153,8 +153,8 @@ module MNIST_tb #(
 	always @(posedge clk) begin
 		if (cycle_index > 1 && a_out != y_out) tc_error = 1; //Since output is obtained starting from cycle 2 up till cycle (cpc-1)
 		if( cycle_index > 1) 
-			if(y_out) error_rate = error_rate + (y_out*1024 - DNN.actL/2048.0)/1024;
-			else error_rate = error_rate + DNN.actL/2048.0/1024;
+			if(y_out) error_rate = error_rate + y_out - DNN.actL/(2**frac_bits);
+			else error_rate = error_rate + DNN.actL/(2**frac_bits);
 	end
 
 
