@@ -3,6 +3,7 @@
 module MNIST_tb #(
 	// DNN parameters to be passed
 	parameter width = 32,
+	parameter width_in = 8,
 	parameter int_bits = 10,
 	parameter frac_bits = 21,
 	parameter L = 3,
@@ -26,7 +27,7 @@ module MNIST_tb #(
 	reg clk = 1;
 	reg reset = 1;
 	reg [width-1:0] eta;
-	wire [8*z[0]/fo[0]-1:0] a_in; //No. of input activations coming into input layer per clock
+	wire [width_in*z[0]/fo[0]-1:0] a_in; //No. of input activations coming into input layer per clock, each having width_in bits
 	wire [z[L-2]/fi[L-2]-1:0] y_in; //No. of ideal outputs coming into input layer per clock
 	wire [z[L-2]/fi[L-2]-1:0] y_out; //ideal output (y_in after going through all layers)
 	wire [z[L-2]/fi[L-2]-1:0] a_out; //Actual output [Eg: 4/4=1 output neuron processed per clock]
@@ -36,7 +37,7 @@ module MNIST_tb #(
 	////////////////////////////////////////////////////////////////////////////////////
 	DNN #(
 		.width(width), 
-		.width_in(8),
+		.width_in(width_in),
 		.int_bits(int_bits),
 		.frac_bits(frac_bits),
 		.L(L), 
@@ -54,7 +55,6 @@ module MNIST_tb #(
 		.reset(reset),
 		.y_out(y_out),
 		.a_out(a_out)
-		//.eta(eta)
 	);
 
 
@@ -73,9 +73,9 @@ module MNIST_tb #(
 	// Training cases Pre-Processing
 	////////////////////////////////////////////////////////////////////////////////////
 	wire [n[L-1]-1:0] y; //Complete 1b ideal output for 1 training case, i.e. No. of output neurons x 1 x 1
-	wire [8*n[0]-1:0] a; //Complete 8b act input for 1 training case, i.e. No. of input neurons x 8 x 1
+	wire [width_in*n[0]-1:0] a; //Complete 8b act input for 1 training case, i.e. No. of input neurons x 8 x 1
 	reg [$clog2(training_cases)-1:0] sel_tc = 10000; //MUX select
-	wire [$clog2(cpc-2)-1:0] sel_network; //MUX select
+	wire [$clog2(cpc-2)-1:0] sel_network; //MUX select to choose which input/output pair to feed to network within a block cycle
 
 	mux #( //Choose the required no. of ideal outputs for feeding to DNN
 		.width(z[L-2]/fi[L-2]), 
@@ -84,11 +84,13 @@ module MNIST_tb #(
 		y, sel_network, y_in);
 
 	mux #( //Choose the required no. of act inputs for feeding to DNN
-		.width(8*z[0]/fo[0]), 
+		.width(width_in*z[0]/fo[0]), 
 		.N(n[0]*fo[0]/z[0]) //This is basically cpc-2 of the 1st junction
 	) mux_actinput_feednetwork (
 		a, sel_network, a_in);
 
+	
+	
 	////////////////////////////////////////////////////////////////////////////////////
 	// Performance evaluation
 	////////////////////////////////////////////////////////////////////////////////////
@@ -123,7 +125,7 @@ module MNIST_tb #(
 
 
 	////////////////////////////////////////////////////////////////////////////////////
-	// observer the dataflow for debug
+	// performance analysis
 	// comment the $display if too much information shows on screen 
 	////////////////////////////////////////////////////////////////////////////////////
 	always @(posedge cycle_clk) begin
@@ -134,14 +136,18 @@ module MNIST_tb #(
 		$display("Error rate = %2.5f", error_rate);
 		//$fdisplay(file, "%0d", total_error);
 		if (tc_error != 0) total_error = total_error+1;
+		
 		//Start new training case
 		num_train <= num_train + 1;
 		sel_tc <= (sel_tc == training_cases-1)? 0 : sel_tc + 1;
-		if (sel_tc == training_cases-1) 
-			$display("finish train epoch %d", epoch);
+		if (sel_tc == training_cases-1) begin
+			$display("finish training epoch %d", epoch);
+			epoch = epoch + 1;
+		end
 		tc_error <= 0;
 		error_rate <= 0;
-		if (num_train==100000) $stop; //2nd stop condition
+		
+		if (num_train==100000) $stop;
 	end
 
 	always @(posedge clk) begin
@@ -154,30 +160,30 @@ module MNIST_tb #(
 
 
 	////////////////////////////////////////////////////////////////////////////////////
-	// data import block
+	// data import block [todo] Modify this portion to have 512 inputs
 	// train_input.dat contains 50000 MNIST pattern. Each pattern contain 28*28 pixels which is 8 bit gray scale.
 	// 					1 line is one pattern with 784 8bit hex.
 	// train_result.dat is the data set for 50000 correct result of training data. There are 10 bits one-hot represent 10 digital number.
 	//					1 line is one pattern with 10 one-hot binary.
 	//data import need to be fixed to the DNN network which is 1024 input and 16 output.
 	//For the trainning data input, the first 784 values are from one trainning pattern and the rest input bits are set to 0.
-	//For the result input, the first 10 values are from the training result with the same index to trainning pattern and the rest bits are set to 0.
-	//trainning_case is the number of pattern that will load to design as a epoch of trainning data. This testbench only have one epoch now.
+	//For the result input, the first 10 values are from the training result with the same index to training pattern and the rest bits are set to 0.
+	//training_case is the number of pattern that will load to design as a epoch of training data. This testbench only have one epoch now.
 	////////////////////////////////////////////////////////////////////////////////////
 	reg i, j, k;
 	reg y_mem[training_cases-1:0][9:0];
-	reg [7:0] a_mem[training_cases-1:0][783:0];
-	wire [8191:0] a_array;
-	wire [15:0] y_array;
+	reg [width_in-1:0] a_mem[training_cases-1:0][783:0];
+	wire [n[0]*width_in-1:0] a_array;
+	wire [n[L-1]-1:0] y_array;
 
 	genvar gv_i;	
-	generate for (gv_i = 0; gv_i<1024; gv_i = gv_i + 1)
+	generate for (gv_i = 0; gv_i<n[0]; gv_i = gv_i + 1)
 	begin: pr
-		assign a[8*(gv_i+1)-1:8*gv_i] = (gv_i<784)? a_mem[sel_tc][gv_i]:0;
+		assign a[width_in*(gv_i+1)-1:width_in*gv_i] = (gv_i<784)? a_mem[sel_tc][gv_i]:0;
 	end
 	endgenerate
 
-	generate for (gv_i = 0; gv_i<16; gv_i = gv_i + 1)
+	generate for (gv_i = 0; gv_i<n[L-1]; gv_i = gv_i + 1)
 	begin: pp
 		assign y[gv_i] = (gv_i<10)? y_mem[sel_tc][gv_i]:0;
 	end
@@ -188,7 +194,10 @@ module MNIST_tb #(
 		$readmemb("train_result.dat", y_mem);
 		$readmemh("train_input.dat", a_mem);
 	end
-
+	////////////////////////////////////////////////////////////////////////////////////
+	//actual code ends here
+	////////////////////////////////////////////////////////////////////////////////////
+	
 	
 	////////////////////////////////////////////////////////////////////////////////////
 	//this whole block is used for debug. Comment it in normal simulation
