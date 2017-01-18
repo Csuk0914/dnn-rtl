@@ -663,8 +663,8 @@ module output_layer_block #(
 		// For sigmoid:
 		//assign a_out[gv_i] = actL[gv_i*width+frac_bits-1]|| actL[gv_i*width+frac_bits]; //This picks out the fractional part MSB. Use that to threshold, i.e. if >=0.5, output=1, if <0.5, output is 0
 		
-		// For ReLU: [todo: Where is the middle linear portion?]
-		assign a_out[gv_i] = (actL[(gv_i+1)*width-1:gv_i*width] > 0)? 1 : 0;	
+		// More general condition
+		assign a_out[gv_i] = (actL[(gv_i+1)*width-1:gv_i*width] >= 0.5)? 1 : 0;	
 	end
 	endgenerate
 endmodule
