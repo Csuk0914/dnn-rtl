@@ -2,6 +2,7 @@
 `timescale 1ns/100ps
 
 //This module computes actn, i.e. z activations for the succeeding layer
+//Multiplication aw = act*wt happens here, the remaining additions and looking up activation function is done in the submodule sigmoid_function
 module FF_processor_set #(
 	parameter fo = 2,
 	parameter fi  = 4,
@@ -72,6 +73,7 @@ module FF_processor_set #(
 endmodule
 
 // Submodule of FF processor set
+// [todo] generalize this for other activations
 module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	parameter fo = 2,
 	parameter fi  = 4,
@@ -79,7 +81,7 @@ module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	parameter n  = 8,
 	parameter z  = 8,
 	parameter width =16,
-	parameter width_TA = width + $clog2(fi),
+	parameter width_TA = width + $clog2(fi), //width of tree adder is not compromised
 	parameter int_bits = 5, 
 	parameter frac_bits = 10
 )(
@@ -105,6 +107,7 @@ module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	genvar gv_i, gv_j;
 	generate for (gv_i = 0; gv_i<fi; gv_i = gv_i + 1)
 	begin : unpackage
+		// The following line sign extends 'width bit' aw to 'width_TA bit'
 		assign partial_s[gv_i] = {{$clog2(fi) {aw_package[width*(gv_i+1)-1]}}, aw_package[width*(gv_i+1)-1:width*gv_i]};
 	end
 	endgenerate
@@ -124,7 +127,7 @@ module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	end
 	endgenerate
 
-	adder #(.width(width_TA)) bias_adder (partial_s[fi*2-2], {{$clog2(fi) {b[width-1]}}, b}, s_raw);
+	adder #(.width(width_TA)) bias_adder (partial_s[fi*2-2], {{$clog2(fi) {b[width-1]}}, b}, s_raw); // The 2nd input is a sign extension of 'width bit' bias to 'width_TA bit'
 	assign s = (s_raw[width_TA-1]==0 && s_raw[width_TA-2:width-1]!=0) ? {1'b0, {(width-1){1'b1}}} : 
 		(s_raw[width_TA-1]==1 && s_raw[width_TA-2:width-1]!={(width_TA-width) {1'b1}}) ? {1'b1, {(width-1){1'b0}}} : 
 		s_raw[width-1:0];
