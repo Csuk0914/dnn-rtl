@@ -657,6 +657,8 @@ module output_layer_block #(
 
 
 	// Threshold width bit outputs to get 1b outputs (DEPENDING ON ACTIVATION)
+	// Right now this supports activations with only nonnegative values (like sigmoid and relu)
+	// [todo] add support for negative activations like tanh if needed
 	genvar gv_i;
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
 		begin : a_output //[todo] Insert ifdef for different activations
@@ -664,7 +666,7 @@ module output_layer_block #(
 		//assign a_out[gv_i] = actL[gv_i*width+frac_bits-1]|| actL[gv_i*width+frac_bits]; //This picks out the fractional part MSB. Use that to threshold, i.e. if >=0.5, output=1, if <0.5, output is 0
 		
 		// More general condition
-			assign a_out[gv_i] = (actL[(gv_i+1)*width-1:gv_i*width+frac_bit-1] != 0)? 1 : 0;//if actL>=0.5, output=1, if actL<0.5, output is 0
+			assign a_out[gv_i] = (actL[(gv_i+1)*width-1:gv_i*width+frac_bits-1] != 0)? 1 : 0;//if actL>=0.5, output=1, if actL<0.5, output is 0
 	end
 	endgenerate
 endmodule
