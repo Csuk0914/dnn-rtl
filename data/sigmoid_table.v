@@ -1,3 +1,5 @@
+// Right now, this script is not used to run MNIST. This is for Mahdi to convert to log
+
 //sign, 3bits_i, 6bits_f ~ 0.015625  --->   8bits_f ~ 0.00390625
 		10'b001000000000:	sigmoid = 8'b0000000000000000;
 		10'b001000000001:	sigmoid = 8'b0000000000000000;

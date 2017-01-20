@@ -174,11 +174,11 @@ module MNIST_tb #(
 	// data import block [todo] Modify this portion to have 512 inputs
 	// train_input.dat contains 50000 MNIST pattern. Each pattern contain 28*28 pixels which is 8 bit gray scale.
 	// 					1 line is one pattern with 784 8bit hex.
-	// train_result.dat is the data set for 50000 correct result of training data. There are 10 bits one-hot represent 10 digital number.
+	// train_idealout.dat is the data set for 50000 correct result of training data. There are 10 bits one-hot represent 10 digital number.
 	//					1 line is one pattern with 10 one-hot binary.
 	//data import need to be fixed to the DNN network which is 1024 input and 16 output.
-	//For the trainning data input, the first 784 values are from one trainning pattern and the rest input bits are set to 0.
-	//For the result input, the first 10 values are from the training result with the same index to training pattern and the rest bits are set to 0.
+	//For the training data input, the first 784 values are from one trainning pattern and the rest input bits are set to 0.
+	//For the idealout input, the first 10 values are from the training result with the same index to training pattern and the rest bits are set to 0.
 	//training_case is the number of pattern that will load to design as a epoch of training data. This testbench only have one epoch now.
 	////////////////////////////////////////////////////////////////////////////////////
 	reg i, j, k;
@@ -202,7 +202,7 @@ module MNIST_tb #(
 
 	initial begin
 		eta = ~(Eta * (2 ** frac_bits)) + 1; //convert the Eta to fix point
-		$readmemb("train_result.dat", y_mem);
+		$readmemb("train_idealout.dat", y_mem);
 		$readmemh("train_input.dat", a_mem);
 	end
 	////////////////////////////////////////////////////////////////////////////////////
