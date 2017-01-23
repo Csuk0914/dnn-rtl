@@ -157,7 +157,7 @@ module dual_port_memory #(
 	integer i;
 	initial begin
 		#0.1; //MNIST_tb.memL1 and L2 are read at t=0. So wait a small while before reading from them
-		// for weight memory, initialize it to glorot normal distribution with mu = 0, sigma = 2/(fi+fo)
+		// for weight memory, initialize it to glorot normal distribution with mu = 0, sigma = sqrt[2/(fi+fo)]
 		// Marsaglia and Bray method to generate the random number following Gaussian distribution
 		if(fi != 0) begin
 			for (i = 0; i < depth; i = i + 1) begin //
