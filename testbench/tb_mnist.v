@@ -203,7 +203,8 @@ module MNIST_tb #(
 	endgenerate
 
 	initial begin
-		eta = ~(Eta * (2 ** frac_bits)) + 1; //convert the Eta to fix point
+		eta = Eta * (2 ** frac_bits); //convert the Eta to fix point
+		eta = ~eta + 1;
 		$readmemb("train_idealout.dat", y_mem);
 		$readmemh("train_input.dat", a_mem);
 	end
