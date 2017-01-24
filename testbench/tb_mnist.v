@@ -13,10 +13,12 @@ module MNIST_tb #(
 	parameter [31:0]n[0:L-1] = '{1024, 64, 16},
 	parameter Eta = 1,
 	parameter lamda = 0.25,
-	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
+	parameter cost_type = 0, //0 for quadcost, 1 for xentcost
 	// Testbench parameters:
-	parameter training_cases = 50000,
+	parameter training_cases = 10000, //number of cases to consider out of entire MNIST. Should be <= 50000
+	parameter total_training_cases = 10*training_cases, //total number of training cases over all epochs
 	//parameter test_cases = 8,
+	parameter checklast = 1000, //how many previous inputs to compute accuracy from
 	parameter clock_period = 10,
 	parameter cpc =  n[0] * fo[0] / z[0] + 2
 );
@@ -76,7 +78,7 @@ module MNIST_tb #(
 	////////////////////////////////////////////////////////////////////////////////////
 	wire [n[L-1]-1:0] y; //Complete 1b ideal output for 1 training case, i.e. No. of output neurons x 1 x 1
 	wire [width_in*n[0]-1:0] a; //Complete 8b act input for 1 training case, i.e. No. of input neurons x 8 x 1
-	reg [$clog2(training_cases)-1:0] sel_tc = 10000; //MUX select
+	reg [$clog2(training_cases)-1:0] sel_tc = 0; //MUX select to choose training case each block cycle
 	wire [$clog2(cpc-2)-1:0] sel_network; //MUX select to choose which input/output pair to feed to network within a block cycle
 
 	mux #( //Choose the required no. of ideal outputs for feeding to DNN
@@ -94,7 +96,7 @@ module MNIST_tb #(
 	
 	
 	////////////////////////////////////////////////////////////////////////////////////
-	// Performance evaluation
+	// Basic performance evaluation
 	////////////////////////////////////////////////////////////////////////////////////
 	wire cycle_clk;
 	wire [$clog2(cpc)-1:0] cycle_index;
@@ -102,7 +104,7 @@ module MNIST_tb #(
 	integer epoch = 0;
 	reg tc_error = 0; //Flags if a particular training case gives error (in any of its neurons)
 	integer total_error = 0; //Total number of tc_errors accumulated over training cases
-	real error_rate = 0;
+	//real error_rate = 0;
 	/* Let e = sum over all output neurons |y_out-actL|, where actL is the unthresholded output of the last layer
 	* Then e is basically giving the L1 norm over all output neurons of a particular training case
 	* error_rate computes average of e over the last 100 training cases, i.e. moving average */
@@ -143,29 +145,29 @@ module MNIST_tb #(
 		$display("Training case number = %0d", num_train);
 		$display("Training Case Error = %0d", tc_error);
 		$display("Total Error = %0d", total_error);
-		$display("Error rate = %2.5f", error_rate);
+		//$display("Error rate = %2.5f", error_rate);
 		//$fdisplay(file, "%0d", total_error);
 		if (tc_error != 0) total_error = total_error+1;
 		
 		//Start new training case
 		num_train <= num_train + 1;
 		sel_tc <= (sel_tc == training_cases-1)? 0 : sel_tc + 1;
-		if (sel_tc == training_cases-1) begin
-			$display("finish training epoch %d", epoch);
+		if (sel_tc == 0) begin
+			$display("finish training epoch %0d", epoch);
 			epoch = epoch + 1;
 		end
 		tc_error <= 0;
-		error_rate <= 0;
+		//error_rate <= 0;
 		
-		if (num_train==100000) $stop;
+		if (num_train==total_training_cases) $stop;
 	end
 
 	always @(posedge clk) begin
 		if (cycle_index > 1 && a_out != y_out) tc_error = 1; //Since output is obtained starting from cycle 2 up till cycle (cpc-1)
-		if( cycle_index > 1)
+		/*if( cycle_index > 1)
 			// Need to divide actL by 2**frac_bits to get result between 0 and 1
 			if(y_out) error_rate = error_rate + y_out - DNN.actL/(2**frac_bits); //y_out = 1, so |y_out-actL| = 1-actL
-			else error_rate = error_rate + DNN.actL/(2**frac_bits); //y_out = 0, so |y_out-actL| = actL
+			else error_rate = error_rate + DNN.actL/(2**frac_bits); //y_out = 0, so |y_out-actL| = actL */
 	end
 
 
@@ -214,9 +216,9 @@ module MNIST_tb #(
 	////////////////////////////////////////////////////////////////////////////////////
 	integer  q, //loop variable
 				correct, //signals whether current training case is correct or not
-				recent = 0; //counts #correct in last 100 training cases
-	integer  crt[100:0], //stores last 100 results - each result is either 1 or 0
-				crt_pt=0; //points to where current training case result will enter. Loops around on reaching 100
+				recent = 0; //counts #correct in last 1000 training cases
+	integer  crt[checklast:0], //stores last 1000 results - each result is either 1 or 0
+				crt_pt=0; //points to where current training case result will enter. Loops around on reaching 1000
 	// For the next few variables:
 	// cpc = Cycles+2, e.g. cycles=16, cpc=18. So [cpc-3:0] creates 16 values to store outputs of 16 cycles.
 	real  net_a_out[cpc-3:0], //Actual 32-bit output of network
@@ -229,25 +231,27 @@ module MNIST_tb #(
 			EMS; //Expected mean square error between a_out and y_out of all neurons in output layer
 	//The following variables store information of the 0th cycle (when cycle_index = 2 out of 17) as fed to the update processor
 	real  wb1[z[L-2]+z[L-2]/fi[L-2]-1:0], //pre-update weights = z[L-2] + biases = z[L-2]/fi[L-2]
-			U_wb1[z[L-2]+z[L-2]/fi[L-2]-1:0], //updated weights and biases
+			//del_wb1[z[L-2]+z[L-2]/fi[L-2]-1:0], //updated weights and biases
 			a1[z[L-2]-1:0]; //activations (which get multiplied by deltas for weight updates) 
 	integer file1, file2;
 
 	initial begin
 		file1 = $fopen("EMS.dat");
 		file2 = $fopen("log.dat"); //Stores a lot of info
-		for(q=0;q<101;q=q+1) crt[q]=0; //initialize all 100 places to 0
+		for(q=0;q<=checklast;q=q+1) crt[q]=0; //initialize all 1000 places to 0
 	end
 
 	always @(negedge clk) begin
 		if (cycle_index==2) begin
-			for (q=0;q<32;q=q+1) begin //Weights and activations
+			for (q=0;q<z[L-2];q=q+1) begin //Weights and activations
 				a1[q] = DNN.hidden_layer_block_1.UP_processor.a[q]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.a[q][width-1]*2.0**(1+int_bits);
 				wb1[q] = DNN.hidden_layer_block_1.UP_processor.w[q]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.w[q][width-1]*2.0**(1+int_bits);
-				U_wb1[q] = DNN.hidden_layer_block_1.UP_processor.w_UP[q]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.w_UP[q][width-1]*2.0**(1+int_bits);
-			end //Biases after this
-			wb1[32] =DNN.hidden_layer_block_1.UP_processor.b[0]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.b[0][width-1]*2.0**(1+int_bits);
-			U_wb1[32] =DNN.hidden_layer_block_1.UP_processor.b_UP[0]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.b_UP[0][width-1]*2.0**(1+int_bits);
+				//del_wb1[q] = DNN.hidden_layer_block_1.UP_processor.delta_w[q]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.delta_w[q][width-1]*2.0**(1+int_bits);
+			end
+			for (q=z[L-2];q<z[L-2]+z[L-2]/fi[L-2];q=q+1) begin //Biases
+				wb1[q] =DNN.hidden_layer_block_1.UP_processor.b[q-z[L-2]]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.b[q-z[L-2]][width-1]*2.0**(1+int_bits);
+				//del_wb1[q] =DNN.hidden_layer_block_1.UP_processor.delta_b[q-z[L-2]]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.delta_b[q-z[L-2]][width-1]*2.0**(1+int_bits);
+			end
 		end
 		if (cycle_index>1) begin //Actual output, ideal output, delta
 			net_a_out[cycle_index-2] = DNN.actL/2.0**frac_bits;
@@ -270,7 +274,7 @@ module MNIST_tb #(
 		end
 		crt[crt_pt] = correct;
 		recent = recent + crt[crt_pt]; //Update recent with value just stored
-		crt_pt = (crt_pt==100)? 0 : crt_pt+1;
+		crt_pt = (crt_pt==checklast)? 0 : crt_pt+1;
 		
 		EMS = 0;
 		for (q=0;q<cpc-2;q=q+1) EMS = delta[q]*delta[q] + EMS;
@@ -284,7 +288,7 @@ module MNIST_tb #(
 		for(q=0;q<cpc-2;q=q+1) $write ("\t %1.4f", net_y_out[q]); $write ("\n");
 		$write ("delta:        ");
 		for(q=0;q<cpc-2;q=q+1) $write ("\t %1.4f", delta[q]); $write ("\n");
-		$display("correct = %5d, recent_100 = %3d, EMS = %5f", correct, recent, EMS); 
+		$display("correct = %5d, recent_%4d = %3d, EMS = %5f", correct, checklast, recent, EMS); 
 
 		// Write to log file - Everything
 		$fdisplay (file2,"-----------------------------train: %d", train_n);
@@ -293,24 +297,24 @@ module MNIST_tb #(
 		$fwrite (file2, "ideal output: ");
 		for(q=0;q<cpc-2;q=q+1) $fwrite (file2, "\t %1.4f", net_y_out[q]); $fwrite (file2, "\n");
 		$fwrite (file2, "delta:        ");
-		for(q=0;q<16;q=q+1) $fwrite (file2, "\t %1.4f", delta[q]); $fwrite (file2, "\n");
+		for(q=0;q<cpc-2;q=q+1) $fwrite (file2, "\t %1.4f", delta[q]); $fwrite (file2, "\n");
 		$fwrite (file2, "z:            ");
-		for(q=0;q<16;q=q+1) $fwrite (file2, "\t %1.4f", zL[q]); $fwrite (file2, "\n");
+		for(q=0;q<cpc-2;q=q+1) $fwrite (file2, "\t %1.4f", zL[q]); $fwrite (file2, "\n");
 		// $fwrite (file2, "a-y:          ");
-		// for(q=0;q<16;q=q+1) $fwrite (file2, "\t %1.4f", a_minus_y[q]); $fwrite (file2, "\n");
+		// for(q=0;q<cpc-2;q=q+1) $fwrite (file2, "\t %1.4f", a_minus_y[q]); $fwrite (file2, "\n");
 		// $fwrite (file2, "spL:          ");
-		// for(q=0;q<16;q=q+1) $fwrite (file2, "\t %1.4f", spL[q]); $fwrite (file2, "\n");
+		// for(q=0;q<cpc-2;q=q+1) $fwrite (file2, "\t %1.4f", spL[q]); $fwrite (file2, "\n");
 		$fwrite (file2, "a1:     ");
 		for(q=0; q<z[L-2]; q=q+1) $fwrite (file2, "\t %1.3f", a1[q]); $fwrite (file2, "\n");
 		$fwrite (file2, "w12:     ");
 		for(q=0; q<z[L-2]; q=q+1) $fwrite (file2, "\t %1.3f", wb1[q]); $fwrite (file2, "\n");
 		$fwrite (file2, "b2:     ");
 		for(q=z[L-2]; q<z[L-2]+z[L-2]/fi[L-2]; q=q+1) $fwrite (file2, "\t %1.3f", wb1[q]); $fwrite (file2, "\n");
-		$fwrite (file2, "w12_UP:     ");
-		for(q=0; q<z[L-2]; q=q+1) $fwrite (file2, "\t %1.3f", U_wb1[q]); $fwrite (file2, "\n");
-		$fwrite (file2, "b2_UP:     ");
-		for(q=z[L-2]; q<z[L-2]+z[L-2]/fi[L-2]; q=q+1) $fwrite (file2, "\t %1.3f", U_wb1[q]); $fwrite (file2, "\n");
-		$fdisplay(file2, "correct = %5d, recent_100 = %3d, EMS = %5f", correct, recent, EMS); 
+		//$fwrite (file2, "delta_w12:     ");
+		//for(q=0; q<z[L-2]; q=q+1) $fwrite (file2, "\t %1.3f", del_wb1[q]); $fwrite (file2, "\n");
+		//$fwrite (file2, "delta_b2:     ");
+		//for(q=z[L-2]; q<z[L-2]+z[L-2]/fi[L-2]; q=q+1) $fwrite (file2, "\t %1.3f", del_wb1[q]); $fwrite (file2, "\n");
+		$fdisplay(file2, "correct = %5d, recent_%4d = %3d, EMS = %5f", correct, checklast, recent, EMS); 
 		$fdisplay(file1, "%5f", EMS); //Write separately to EMS file
 	end
 	////////////////////////////////////////////////////////////////////////////////////
