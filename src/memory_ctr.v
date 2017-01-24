@@ -396,12 +396,12 @@ module act_sp_ctr #(
 
 	// DM weB
 	generate for (gv_i = 0; gv_i<2; gv_i = gv_i + 1)
-		for (gv_j = 0; gv_j<p/z*fo; gv_j = gv_j + 1)
-			for (gv_k = 0; gv_k<(z/(cpc-2)); gv_k = gv_k + 1)
-				assign d_weB_package[gv_i*z+gv_j*z/(cpc-2)+gv_k] = 
-				((cycle_index_d < cpc-2) &&
-				(gv_j==cycle_index_d[$clog2(p/z*fo)-1:0]) && //check for part match
-				(gv_i==d_rBP_pt))? 1: 0;
+		for (gv_j = 0; gv_j<fo; gv_j = gv_j + 1) //choose part out of fo parts in a collection
+			for (gv_k = 0; gv_k<(z/fo); gv_k = gv_k + 1) //choose memory out of z/fo memories in a part
+				assign d_weB_package[gv_i*z+gv_j*(z/fo)+gv_k] = 
+					((cycle_index_d < cpc-2) &&
+					((gv_j)==cycle_index_d[$clog2(fo)-1:0]) && //check for part match
+					(gv_i==d_rBP_pt))? 1: 0;
 				// From the example in comments, weB of ~rBP_pt will be 0
 				// weB of rBP_pt will be 1 only after 1 clock delay, that is why we use cycle_index_d in the comparison, and not cycle_index
 				// (cycle_index can be used of course, but that would lead to the additional condition of it needing to be greater than 0)
