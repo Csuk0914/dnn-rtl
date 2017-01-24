@@ -206,141 +206,114 @@ module MNIST_tb #(
 		$readmemh("train_input.dat", a_mem);
 	end
 	////////////////////////////////////////////////////////////////////////////////////
-	//actual code ends here
-	////////////////////////////////////////////////////////////////////////////////////
-	
 	
 	////////////////////////////////////////////////////////////////////////////////////
-	//this whole block is used for debug. Comment it in normal simulation
+	/* This whole block is used for debug. Comment it in normal simulation
+		The following line converts any variable x[width-1:0] from its 2'c complement binary representation to signed decimal representation
+		x/2.0**frac_bits - x[width-1]*2.0**(1+int_bits)  */
 	////////////////////////////////////////////////////////////////////////////////////
-	integer p, q, correct, recent = 0;
-	integer crt[100:0], crt_pt=0;
-	real net_a_out[15:0], net_y_out[15:0], a_minus_y[15:0], delta[15:0], spL[15:0], train_n=0;
-	real zL[15:0];
-	real EMS;
-	real wb1[32:0],U_wb1[32:0], a1[31:0], a_index[31:0];
+	integer  q, //loop variable
+				correct, //signals whether current training case is correct or not
+				recent = 0; //counts #correct in last 100 training cases
+	integer  crt[100:0], //stores last 100 results - each result is either 1 or 0
+				crt_pt=0; //points to where current training case result will enter. Loops around on reaching 100
+	// For the next few variables:
+	// cpc = Cycles+2, e.g. cycles=16, cpc=18. So [cpc-3:0] creates 16 values to store outputs of 16 cycles.
+	real  net_a_out[cpc-3:0], //Actual 32-bit output of network
+			net_y_out[cpc-3:0], //Ideal output y
+			//a_minus_y[cpc-3:0],
+			delta[cpc-3:0], //a-y
+			//spL[cpc-3:0],
+			zL[cpc-3:0]; //output layer z, i.e. just before taking final sigmoid
+	real  train_n=0, //training case number
+			EMS; //Expected mean square error between a_out and y_out of all neurons in output layer
+	//The following variables store information of the 0th cycle (when cycle_index = 2 out of 17) as fed to the update processor
+	real  wb1[z[L-2]+z[L-2]/fi[L-2]-1:0], //pre-update weights = z[L-2] + biases = z[L-2]/fi[L-2]
+			U_wb1[z[L-2]+z[L-2]/fi[L-2]-1:0], //updated weights and biases
+			a1[z[L-2]-1:0]; //activations (which get multiplied by deltas for weight updates) 
 	integer file1, file2;
 
 	initial begin
 		file1 = $fopen("EMS.dat");
-		file2 = $fopen("log.dat");
-		for(q = 0;q<101; q = q + 1)
-			crt[q]=0;
-
+		file2 = $fopen("log.dat"); //Stores a lot of info
+		for(q=0;q<101;q=q+1) crt[q]=0; //initialize all 100 places to 0
 	end
-
-	wire [8:0]a_index_w[31:0];
-	genvar gv_p;
-	generate for(gv_p=0;gv_p<32;gv_p=gv_p+1) begin
-			//assign a_index_w[gv_p]=DNN.hidden_layer_block_1.hidden_layer_state_machine.inter.maid[gv_p].DRP.memory_index;
-		end
-	endgenerate
 
 	always @(negedge clk) begin
-	if (cycle_index==1) begin
-		for (q=0;q<32;q=q+1) begin
-			a_index[q]=a_index_w[q];
+		if (cycle_index==2) begin
+			for (q=0;q<32;q=q+1) begin //Weights and activations
+				a1[q] = DNN.hidden_layer_block_1.UP_processor.a[q]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.a[q][width-1]*2.0**(1+int_bits);
+				wb1[q] = DNN.hidden_layer_block_1.UP_processor.w[q]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.w[q][width-1]*2.0**(1+int_bits);
+				U_wb1[q] = DNN.hidden_layer_block_1.UP_processor.w_UP[q]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.w_UP[q][width-1]*2.0**(1+int_bits);
+			end //Biases after this
+			wb1[32] =DNN.hidden_layer_block_1.UP_processor.b[0]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.b[0][width-1]*2.0**(1+int_bits);
+			U_wb1[32] =DNN.hidden_layer_block_1.UP_processor.b_UP[0]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.b_UP[0][width-1]*2.0**(1+int_bits);
 		end
-	end
-
-	if (cycle_index==2) begin
-		for (q=0;q<32;q=q+1) begin
-			a1[q] =DNN.hidden_layer_block_1.UP_processor.a[q]/2.0**frac_bits
-									-DNN.hidden_layer_block_1.UP_processor.a[q][width-1]*2.0**(1+int_bits);
-			wb1[q] =DNN.hidden_layer_block_1.UP_processor.w[q]/2.0**frac_bits
-									-DNN.hidden_layer_block_1.UP_processor.w[q][width-1]*2.0**(1+int_bits);
-			U_wb1[q] =DNN.hidden_layer_block_1.UP_processor.w_UP[q]/2.0**frac_bits
-									-DNN.hidden_layer_block_1.UP_processor.w_UP[q][width-1]*2.0**(1+int_bits);
+		if (cycle_index>1) begin //Actual output, ideal output, delta
+			net_a_out[cycle_index-2] = DNN.actL/2.0**frac_bits;
+			net_y_out[cycle_index-2] = DNN.y_out; //Division is not required because it is not in 32-bit form
+			// a_minus_y[cycle_index-2] = DNN.output_layer_block.a_minus_y/2.0**frac_bits - DNN.output_layer_block.a_minus_y[width-1]*2.0**(1+int_bits);
+			// spL[cycle_index-2] = DNN.output_layer_block.spL/2.0**frac_bits - DNN.output_layer_block.spL[width-1]*2.0**(1+int_bits);
+			delta[cycle_index-2] = DNN.output_layer_block.delta/2.0**frac_bits - DNN.output_layer_block.delta[width-1]*2.0**(1+int_bits);
 		end
-		wb1[32] =DNN.hidden_layer_block_1.UP_processor.b[0]/2.0**frac_bits
-									-DNN.hidden_layer_block_1.UP_processor.b[0][width-1]*2.0**(1+int_bits);
-		U_wb1[32] =DNN.hidden_layer_block_1.UP_processor.b_UP[0]/2.0**frac_bits
-									-DNN.hidden_layer_block_1.UP_processor.b_UP[0][width-1]*2.0**(1+int_bits);
+		if (cycle_index>0 && cycle_index<=cpc-2) begin //z of output layer
+			zL[cycle_index-1] = DNN.hidden_layer_block_1.FF_processor.sigmoid_function_set[0].s_function.s/2.0**frac_bits - DNN.hidden_layer_block_1.FF_processor.sigmoid_function_set[0].s_function.s[width-1]*2.0**(1+int_bits);
 		end
-	if (cycle_index>1) begin
-		net_a_out[cycle_index-2] = DNN.actL/2.0**frac_bits;
-		net_y_out[cycle_index-2] = DNN.y_out;
-		// a_minus_y[cycle_index-2] = DNN.output_layer_block.a_minus_y/2.0**frac_bits
-		// 							-DNN.output_layer_block.a_minus_y[width-1]*2.0**(1+int_bits);
-		// spL[cycle_index-2] = DNN.output_layer_block.spL/2.0**frac_bits
-		// 							-DNN.output_layer_block.spL[width-1]*2.0**(1+int_bits);
-		delta[cycle_index-2] = DNN.output_layer_block.delta/2.0**frac_bits
-									-DNN.output_layer_block.delta[width-1]*2.0**(1+int_bits);
-	end
-	if (cycle_index>0 && cycle_index<17) begin
-		zL[cycle_index-1] = DNN.hidden_layer_block_1.FF_processor.sigmoid_function_set[0].s_function.s/2.0**frac_bits
-							-DNN.hidden_layer_block_1.FF_processor.sigmoid_function_set[0].s_function.s[width-1]*2.0**(1+int_bits);
-	end
-
 	end
 	
-	always @(posedge cycle_clk)begin
-		correct = 1;
-		for (q=0;q<16;q=q+1) if((net_a_out[q]>0.5 && net_y_out[q]<0.5)||(net_a_out[q]<0.5 && net_y_out[q]>0.5)) correct=0; 
-		crt[crt_pt] = correct;
-		if (correct)
-			recent = recent + 1;
-		crt_pt = (crt_pt ==100)? 0:crt_pt+1;
-		if (crt[crt_pt])
-			recent = recent - 1;
+	always @(posedge cycle_clk) begin
 		train_n = train_n + 1;
+		recent = recent - crt[crt_pt]; //crt[crt_pt] is the value about to be replaced 
+		correct = 1; //temporary placeholder
+		for (q=0;q<cpc-2;q=q+1) begin
+			if((net_a_out[q]>0.5 && net_y_out[q]<0.5)||(net_a_out[q]<0.5 && net_y_out[q]>0.5)) correct=0; //If any output neuron has wrong threshold value, whole thing becomes wrong
+		end
+		crt[crt_pt] = correct;
+		recent = recent + crt[crt_pt]; //Update recent with value just stored
+		crt_pt = (crt_pt==100)? 0 : crt_pt+1;
+		
 		EMS = 0;
-		for (q=0;q<16;q=q+1) EMS = delta[q]*delta[q] + EMS;
+		for (q=0;q<cpc-2;q=q+1) EMS = delta[q]*delta[q] + EMS;
 		EMS = EMS * 100;
+
+		// Transcript display - case number, actual output, ideal output, delta, stats
 		$display ("-----------------------------train: %d", train_n);
 		$write ("actual output:");
-		for(q=0;q<16;q=q+1) $write ("\t %1.4f", net_a_out[q]); $write ("\n");
+		for(q=0;q<cpc-2;q=q+1) $write ("\t %1.4f", net_a_out[q]); $write ("\n");
 		$write ("ideal output: ");
-		for(q=0;q<16;q=q+1) $write ("\t %1.4f", net_y_out[q]); $write ("\n");
-		// $write ("a-y:          ");
-		// for(q=0;q<16;q=q+1) $write ("\t %1.4f", a_minus_y[q]); $write ("\n");
-		// $write ("spL:          ");
-		// for(q=0;q<16;q=q+1) $write ("\t %1.4f", spL[q]); $write ("\n");
+		for(q=0;q<cpc-2;q=q+1) $write ("\t %1.4f", net_y_out[q]); $write ("\n");
 		$write ("delta:        ");
-		for(q=0;q<16;q=q+1) $write ("\t %1.4f", delta[q]); $write ("\n");
-		$write ("z:            ");
-		for(q=0;q<16;q=q+1) $write ("\t %1.4f", zL[q]); $write ("\n");
-		for(p=0;p<2;p=p+1) begin
-		// $write ("a_index%1d:     ", p);
-		// for(q=0;q<8;q=q+1) $write ("\t %3d", a_index[q+8*p]); $write ("\n");
-		$write ("a%1d:           ", p);
-		for(q=0;q<8;q=q+1) $write ("\t %1.3f", a1[q+8*p]); $write ("\n");
-		// $write ("w%1d:           ", p);
-		// for(q=0;q<8;q=q+1) $write ("\t %1.3f", wb1[q+8*p]); $write ("\n");
-		// $write ("w_UP%1d:      ", p);
-		// for(q=0;q<8;q=q+1) $write ("\t %1.3f", U_wb1[q+8*p]); $write ("\n");
-		end
+		for(q=0;q<cpc-2;q=q+1) $write ("\t %1.4f", delta[q]); $write ("\n");
 		$display("correct = %5d, recent_100 = %3d, EMS = %5f", correct, recent, EMS); 
 
+		// Write to log file - Everything
 		$fdisplay (file2,"-----------------------------train: %d", train_n);
 		$fwrite (file2, "actual output:");
-		for(q=0;q<16;q=q+1) $fwrite (file2, "\t %1.4f", net_a_out[q]); $fwrite (file2, "\n");
+		for(q=0;q<cpc-2;q=q+1) $fwrite (file2, "\t %1.4f", net_a_out[q]); $fwrite (file2, "\n");
 		$fwrite (file2, "ideal output: ");
-		for(q=0;q<16;q=q+1) $fwrite (file2, "\t %1.4f", net_y_out[q]); $fwrite (file2, "\n");
-		// $fwrite (file2, "a-y:          ");
-		// for(q=0;q<16;q=q+1) $fwrite (file2, "\t %1.4f", a_minus_y[q]); $fwrite (file2, "\n");
-		// $fwrite (file2, "spL:          ");
-		// for(q=0;q<16;q=q+1) $fwrite (file2, "\t %1.4f", spL[q]); $fwrite (file2, "\n");
+		for(q=0;q<cpc-2;q=q+1) $fwrite (file2, "\t %1.4f", net_y_out[q]); $fwrite (file2, "\n");
 		$fwrite (file2, "delta:        ");
 		for(q=0;q<16;q=q+1) $fwrite (file2, "\t %1.4f", delta[q]); $fwrite (file2, "\n");
 		$fwrite (file2, "z:            ");
 		for(q=0;q<16;q=q+1) $fwrite (file2, "\t %1.4f", zL[q]); $fwrite (file2, "\n");
-		for(p=0;p<4;p=p+1) begin
-		$fwrite (file2, "a_index%1d:     ", p);
-		for(q=0;q<8;q=q+1) $fwrite (file2, "\t %3d", a_index[q+8*p]); $fwrite (file2, "\n");
-		$fwrite (file2, "a%1d:           ", p);
-		for(q=0;q<8;q=q+1) $fwrite (file2, "\t %1.3f", a1[q+8*p]); $fwrite (file2, "\n");
-		$fwrite (file2, "w%1d:           ", p);
-		for(q=0;q<8;q=q+1) $fwrite (file2, "\t %1.3f", wb1[q+8*p]); $fwrite (file2, "\n");
-		$fwrite (file2, "w_UP%1d:      ", p);
-		for(q=0;q<8;q=q+1) $fwrite (file2, "\t %1.3f", U_wb1[q+8*p]); $fwrite (file2, "\n");
-		end
+		// $fwrite (file2, "a-y:          ");
+		// for(q=0;q<16;q=q+1) $fwrite (file2, "\t %1.4f", a_minus_y[q]); $fwrite (file2, "\n");
+		// $fwrite (file2, "spL:          ");
+		// for(q=0;q<16;q=q+1) $fwrite (file2, "\t %1.4f", spL[q]); $fwrite (file2, "\n");
+		$fwrite (file2, "a1:     ");
+		for(q=0; q<z[L-2]; q=q+1) $fwrite (file2, "\t %1.3f", a1[q]); $fwrite (file2, "\n");
+		$fwrite (file2, "w12:     ");
+		for(q=0; q<z[L-2]; q=q+1) $fwrite (file2, "\t %1.3f", wb1[q]); $fwrite (file2, "\n");
+		$fwrite (file2, "b2:     ");
+		for(q=z[L-2]; q<z[L-2]+z[L-2]/fi[L-2]; q=q+1) $fwrite (file2, "\t %1.3f", wb1[q]); $fwrite (file2, "\n");
+		$fwrite (file2, "w12_UP:     ");
+		for(q=0; q<z[L-2]; q=q+1) $fwrite (file2, "\t %1.3f", U_wb1[q]); $fwrite (file2, "\n");
+		$fwrite (file2, "b2_UP:     ");
+		for(q=z[L-2]; q<z[L-2]+z[L-2]/fi[L-2]; q=q+1) $fwrite (file2, "\t %1.3f", U_wb1[q]); $fwrite (file2, "\n");
 		$fdisplay(file2, "correct = %5d, recent_100 = %3d, EMS = %5f", correct, recent, EMS); 
-		$fdisplay(file1, "%5f", EMS);
+		$fdisplay(file1, "%5f", EMS); //Write separately to EMS file
 	end
-
 	////////////////////////////////////////////////////////////////////////////////////
 	// debug block end
 	////////////////////////////////////////////////////////////////////////////////////
-
 endmodule

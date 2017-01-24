@@ -1,16 +1,13 @@
-import random
-import math
+import numpy as np
+import os
 
-def gaussian_list_generate(fi, fo, frac_bit, int_bit):
-    for i in range(2000):
-        width = frac_bit + int_bit + 1
-        x = random.gauss(0, math.sqrt(2/(fi+fo)))
-        if x>16:
-            x = 16
-        elif x<-16:
-            x = -16
-        #print (x)
-        x_bin = format(int(2**(width+1) + x * (2**frac_bit)), 'b')
+def gaussian_list_generate(fi, fo, int_bits, frac_bits, filename='f'):
+    width = frac_bits + int_bits + 1 #1 for sign bit
+    x = np.random.normal(0,np.sqrt(2./(fi+fo)),2000)
+    x[x>2**int_bits-2**(-frac_bits)] = 2**int_bits-2**(-frac_bits) #positive limit
+    x[x<-2**int_bits] = -2**int_bits #negative limit
+    for i in xrange(len(x)):
+        x_bin = format(int(2**(width+1) + x[i]*(2**frac_bits)), 'b')
         print (x_bin[-width:])
 
-gaussian_list_generate(128,8,21,10)
+gaussian_list_generate(128,8,10,21)
