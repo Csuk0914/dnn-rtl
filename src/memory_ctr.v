@@ -168,7 +168,7 @@ module hidden_layer_state_machine #( // This is state machinw, so it will input 
 	output [$clog2(cpc)-1:0] cycle_index_delay
 );	
 
-	wire [$clog2(p)*z-1:0] memory_index; //Output of z interlavers. Points to all z neurons in p layer from which activations are to be taken for FF
+	wire [$clog2(p)*z-1:0] memory_index; //Output of z interleavers. Points to all z neurons in p layer from which activations are to be taken for FF
 	wire [$clog2(p/z)*z-1:0] r_address_raw; //z read addresses from all AMp for FF and UP
 	//Note that same mem adresses are used for FF collection and UP collection, just because they are different collections, they need different r_pt values
 	wire [$clog2(z)*z-1:0] initial_mux_sel, initial_d_mux_sel; //z MUXes, each z-to-1, i.e. log(z) select bits
@@ -181,7 +181,7 @@ module hidden_layer_state_machine #( // This is state machinw, so it will input 
 	 	.p(p), 
 	 	.n(n), 
 	 	.z(z)
-	) interlever (
+	) interleaver (
 		.cycle_index(cycle_index[$clog2(cpc-2)-1:0]), //if cpc = 3, then $clog2(cpc-2)-1 = -1. For Verilog, a[-1:0] is a syntax error. So cpc must be > 3
 		.memory_index_package(memory_index)
 	);
@@ -402,14 +402,6 @@ module act_sp_ctr #(
 					((cycle_index_d < cpc-2) &&
 					((gv_j)==cycle_index_d[$clog2(fo)-1:0]) && //check for part match
 					(gv_i==d_rBP_pt))? 1: 0;
-
-	// generate for (gv_i = 0; gv_i<2; gv_i = gv_i + 1)
-	// 	for (gv_j = 0; gv_j<p/z*fo; gv_j = gv_j + 1)
-	// 		for (gv_k = 0; gv_k<(z/(cpc-2)); gv_k = gv_k + 1)
-	// 			assign d_weB_package[gv_i*z+gv_j*z/(cpc-2)+gv_k] = 
-	// 			((cycle_index_d < cpc-2) &&
-	// 			(gv_j==cycle_index_d[$clog2(p/z*fo)-1:0]) && //check for part match
-	// 			(gv_i==d_rBP_pt))? 1: 0;
 				// From the example in comments, weB of ~rBP_pt will be 0
 				// weB of rBP_pt will be 1 only after 1 clock delay, that is why we use cycle_index_d in the comparison, and not cycle_index
 				// (cycle_index can be used of course, but that would lead to the additional condition of it needing to be greater than 0)
@@ -669,7 +661,7 @@ endmodule
 
 
 // For the next 2 modules, refer to slide 19 of Sourya_20160629_DRP.pptx
-module address_decoder #(
+/*module address_decoder #(
 	parameter fo = 2,
 	parameter fi  = 4,
 	parameter p  = 16,
@@ -677,7 +669,7 @@ module address_decoder #(
 	parameter z  = 8
 )(
 	input [$clog2(p)*z-1:0] memory_index_package, //Neuron from where I should get activation = output of interleaver
-	output [$clog2(p/z)*z-1:0] address_package, //[Eg: Slide 19 final output addresses to AMp]
+	output [$clog2(p/z)*z-1:0] address_package, //1 address for each AMp and DMp, total of z. Addresses are log(p/z) bits since AMp and DMp have that many elements
 	output [$clog2(z)*z-1:0] mux_sel_package, //control signals for AMp MUXes
 	output [$clog2(z)*z-1:0] d_mux_sel_package //control signals for DMp MUXes
 );
@@ -699,8 +691,34 @@ module address_decoder #(
 		);
 		assign memory_index [gv_i] = memory_index_package [$clog2(p)*(gv_i+1)-1:$clog2(p)*gv_i]; //[Eg: Slide 19 'a' values]
 		assign address_package[$clog2(p/z)*(gv_i+1)-1:$clog2(p/z)*gv_i] = memory_index[insert[gv_i]][$clog2(p)-1:$clog2(z)]; //[Eg: Slide 9 'a'[9:6]]
-		assign mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] =  memory_index [gv_i][$clog2(z)-1:0]; //[Eg: Slide 9 'a'[5:0]]
-		assign d_mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] = insert[gv_i];
+		assign mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] =  memory_index[gv_i][$clog2(z)-1:0]; //[Eg: Slide 9 'a'[5:0]]. This MUX feeds weight gv_i
+		assign d_mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] = insert[gv_i]; //This DeMUX feeds Mem gv_i. It's the inverse mapping from weights to memories
+	end
+	endgenerate
+endmodule*/
+
+module address_decoder #(
+	parameter fo = 2,
+	parameter fi  = 4,
+	parameter p  = 16,
+	parameter n  = 8,
+	parameter z  = 8
+)(
+	input [$clog2(p)*z-1:0] memory_index_package, //Neuron from where I should get activation = output of interleaver
+	output [$clog2(p/z)*z-1:0] address_package, //1 address for each AMp and DMp, total of z. Addresses are log(p/z) bits since AMp and DMp have that many elements
+	output [$clog2(z)*z-1:0] mux_sel_package, //control signals for AMp MUXes
+	output [$clog2(z)*z-1:0] d_mux_sel_package //control signals for DMp MUXes
+);
+
+	wire [$clog2(p)-1:0]memory_index[z-1:0];
+
+	genvar gv_i;
+	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+	begin: address_decoder
+		assign memory_index[gv_i] = memory_index_package[$clog2(p)*(gv_i+1)-1:$clog2(p)*gv_i]; //Unpacking
+		assign address_package[$clog2(p/z)*(gv_i+1)-1:$clog2(p/z)*gv_i] = memory_index[gv_i][$clog2(p)-1:$clog2(z)];
+		assign mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] =  gv_i;
+		assign d_mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] = gv_i;
 	end
 	endgenerate
 endmodule
