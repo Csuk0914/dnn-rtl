@@ -566,12 +566,12 @@ module interleaver_set #(
 )(
 	input [$clog2(fo*p/z)-1:0] cycle_index, //log of total number of cycles to process a junction = log(no. of weights / z)
 	// [Eg: Here total no. of cycles to process a junction = 8, so cycle_index is 3b. It goes as 000 -> 001 -> ... -> 111]
-	output [$clog2(p)*z-1:0] memory_index_package //This has all addresses [Eg: Here this has z=8 5b values, indexing the 8 neurons which need to be accessed out of 32 lefthand neurons]
+	output [$clog2(p)*z-1:0] memory_index_package //This has all actmem addresses [Eg: Here this has z=8 5b values indexing the 8 neurons to be accessed out of 32 lefthand neurons]
 );
 
 	wire [$clog2(p*fo)-1:0] wt [0:z-1]; //Index of output side weight being read
 	//z weights are read in each running of this module, and each has log(p*fo)-bit index since there are (p*fo) weights in total
-	wire [$clog2(p/z)-1:0] t [0:p-1]; //t is same as earlier capital S
+	wire [$clog2(p/z)-1:0] t [0:p-1]; //t is same as earlier capital S, i.e. the complete pattern for all p neurons in 1 sweep
 	wire [$clog2(p)-1:0] memory_index [0:z-1];
 
 	genvar gv_i, gv_j;
@@ -580,7 +580,7 @@ module interleaver_set #(
 			for (gv_j = 0; gv_j<z; gv_j = gv_j + 1) begin
 				//For addition, we don't need to put modulo p/z because each element of sweepstart iz p/z bits, so it automatically does modulo
 				//[Eg: If p/z=4, then each element of sweepstart is 0 or 1 or 2 or 3. So if we do something like s[6]+3 = 3+3 = 6, it automatically stores 6 as 6%4=2]
-				if (fo==1) assign t[gv_i*z+gv_j] = sweepstart[gv_j]+gv_i; //If fo=1, sweepstart just has z elements. Just pick the relevant element 
+				if (fo==1) assign t[gv_i*z+gv_j] = sweepstart[gv_j]+gv_i; //If fo=1, sweepstart just has z elements. Just pick the relevant element and add offset
 				else assign t[gv_i*z+gv_j] = sweepstart[gv_j+cycle_index[$clog2(fo*p/z)-1:$clog2(p/z)]*z]+gv_i; /*If fo>1, sweepstart will have fo*z elements
 				In this case, we need to shift the index of sweepstart depending on the sweep number
 				[Eg: Say p=32, fo=4, z=8 => cycle_index goes from 0000 -> 1111. The 2 MSBs give the sweep number, so we add 2MSBs*z to the index of sweepstart]*/
@@ -588,10 +588,12 @@ module interleaver_set #(
 		end
 	endgenerate
 
-	generate //weight interleaver
+	generate //actual interleaver
 		for (gv_i = 0; gv_i<z; gv_i = gv_i + 1) begin
-			assign wt[gv_i] = cycle_index*z + gv_i;
-			assign memory_index[gv_i] = t[wt[gv_i][$clog2(p)-1:0]]*z + wt[gv_i][$clog2(z)-1:0];
+			assign wt[gv_i] = cycle_index*z + gv_i; //Get weight number
+			assign memory_index[gv_i] = t[wt[gv_i][$clog2(p)-1:0]]*z + wt[gv_i][$clog2(z)-1:0]; /*Convert weight number to interleaved ACTIVATION number, i.e. neuron number
+			Note that the final expression on copy is a weight interleaver:  pi[i] = (t[i%p]*z + (i%z))*fo + (i/p)
+			Here we delete the last 2 terms to get act[i] = t[i%p]*z + (i%z), where i = wt[gv_i] */ 
 		end
 	endgenerate
 
