@@ -11,7 +11,7 @@ module MNIST_tb #(
 	parameter [31:0]fi[0:L-2]  = '{128, 32},
 	parameter [31:0]z[0:L-2]  = '{512, 32},
 	parameter [31:0]n[0:L-1] = '{1024, 64, 16},
-	parameter Eta = 1,
+	parameter Eta = 0.5,
 	parameter lamda = 0.25,
 	parameter cost_type = 0, //0 for quadcost, 1 for xentcost
 	// Testbench parameters:
@@ -142,7 +142,7 @@ module MNIST_tb #(
 	////////////////////////////////////////////////////////////////////////////////////
 	always @(posedge cycle_clk) begin
 		//Evaluate previous training case
-		$display("Training case number = %0d", num_train);
+		//$display("Training case number = %0d", num_train);
 		$display("Training Case Error = %0d", tc_error);
 		$display("Total Error = %0d", total_error);
 		//$display("Error rate = %2.5f", error_rate);
