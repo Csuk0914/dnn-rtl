@@ -152,13 +152,13 @@ module MNIST_tb #(
 	// Performance Evaluation Variables
 	////////////////////////////////////////////////////////////////////////////////////
 	integer  num_train = 0, //Number of the current training case
-				epoch = 1,
+				epoch = 0,
 				q, //loop variable
 				correct, //signals whether current training case is correct or not
 				recent = 0, //counts #correct in last 1000 training cases
 				crt[checklast:0], //stores last 1000 results - each result is either 1 or 0
 				crt_pt=0, //points to where current training case result will enter. Loops around on reaching 1000
-				total_correct = 0, //Total number of correct accumulated over training cases
+				total_error = 0, //Total number of tc_errors accumulated over training cases
 				log_file;
 	real 		EMS; //Expected mean square error between a_out and y_out of all neurons in output layer
 	/*real error_rate = 0;
@@ -230,7 +230,7 @@ module MNIST_tb #(
 		crt[crt_pt] = correct;
 		recent = recent + crt[crt_pt]; //Update recent with value just stored
 		crt_pt = (crt_pt==checklast)? 0 : crt_pt+1;
-		total_correct = total_correct + correct;
+		total_error = total_error + 1 - correct;
 		
 		EMS = 0;
 		for (q=0; q<n[L-1]; q=q+1) EMS = delta[q]*delta[q] + EMS;
@@ -263,9 +263,9 @@ module MNIST_tb #(
 		//$fwrite (log_file, "delta_b2:     ");
 		//for(q=z[L-2]; q<z[L-2]+z[L-2]/fi[L-2]; q=q+1) $fwrite (log_file, "\t %1.3f", del_wb1[q]); $fwrite (log_file, "\n");
 		$fdisplay(log_file, "correct = %0d, recent_%4d = %3d, EMS = %5f", correct, checklast, recent, EMS);
+		//$fdisplay(log_file, "Total Error = %0d", total_error);
 		if (sel_tc == 0) begin
-			$fdisplay(log_file, "\nFINISHED TRAINING EPOCH %0d", epoch);
-			$fdisplay(log_file, "Total Correct = %0d\n", total_correct);
+			if (epoch!=0) $fwrite(log_file, "\nFINISHED TRAINING EPOCH %0d\n", epoch);
 			epoch = epoch + 1;
 		end
 		
