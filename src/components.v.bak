@@ -260,7 +260,7 @@ module max_finder_set #(
 			for (gv_i=$clog2(N)-1; gv_i>=0; gv_i=gv_i-1) begin: max_finder_levels
 				for (gv_j=0; gv_j<2**gv_i; gv_j=gv_j+1) begin
 					if (gv_i==$clog2(N)-1) begin //1st level of 2to1 maxfinders which operate directly on inputs
-						assign interpos[(gv_i+1)*gv_j+gv_i:(gv_i+1)*gv_j+1] = gv_j;
+						//assign interpos[(gv_i+1)*gv_j+gv_i:(gv_i+1)*gv_j+1] = gv_j;
 						max_finder #(
 							.width(width)
 						) maxf_level1 (
@@ -271,7 +271,11 @@ module max_finder_set #(
 						);
 					end
 					else begin //2nd level onwards, which operate with intermeds as both inputs and outputs
-						max_finder #(
+						/*assign interpos[(N+gv_j-2**(gv_i+1))*$clog2(N)+$clog2(N)-1:(N+gv_j-2**(gv_i+1))*$clog2(N)] =
+							(singlepos[N/2-2**(gv_i+1)+gv_j]==0) ?
+							interpos[(N-2**(gv_i+2)+2*gv_j)*$clog2(N)+$clog2(N)-1:(N-2**(gv_i+2)+2*gv_j)*$clog2(N)] :
+							interpos[(N-2**(gv_i+2)+2*gv_j+1)*$clog2(N)+$clog2(N)-1:(N-2**(gv_i+2)+2*gv_j+1)*$clog2(N)];
+						*/max_finder #(
 							.width(width)
 						) maxf_biglevels (
 							.a(intermeds[(N-2**(gv_i+2)+2*gv_j+1)*width-1:(N-2**(gv_i+2)+2*gv_j)*width]),
@@ -279,10 +283,6 @@ module max_finder_set #(
 							.out(intermeds[(N+gv_j+1-2**(gv_i+1))*width-1:(N+gv_j-2**(gv_i+1))*width]),
 							.pos(singlepos[N/2-2**(gv_i+1)+gv_j])
 						);
-						assign interpos[(N+gv_j-2**(gv_i+1))*$clog2(N)+$clog2(N)-1:(N+gv_j-2**(gv_i+1))*$clog2(N)] =
-							(singlepos[N/2-2**(gv_i+1)+gv_j]==0) ?
-							interpos[(N-2**(gv_i+2)+2*gv_j)*$clog2(N)+$clog2(N)-1:(N-2**(gv_i+2)+2*gv_j)*$clog2(N)] :
-							interpos[(N-2**(gv_i+2)+2*gv_j+1)*$clog2(N)+$clog2(N)-1:(N-2**(gv_i+2)+2*gv_j+1)*$clog2(N)];
 					end
 				end
 			end
