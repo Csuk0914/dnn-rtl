@@ -245,13 +245,13 @@ module MNIST_tb #(
 
 		// Write to log file - Everything
 		$fdisplay (log_file,"-----------------------------train: %d", num_train);
-		$fwrite (log_file, "ideal       output:");
+		$fwrite (log_file, "ideal       output: ");
 		for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %5d", net_y_out[q]); $fwrite (log_file, "\n");
 		$fwrite (log_file, "actual      output:");
 		for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %5d", a_out[q]); $fwrite (log_file, "\n");
 		$fwrite (log_file, "actual real output:");
 		for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %1.4f", net_a_out[q]); $fwrite (log_file, "\n");
-		$fwrite (log_file, "delta:            ");
+		$fwrite (log_file, "delta:        ");
 		for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %1.4f", delta[q]); $fwrite (log_file, "\n");
 		//$fwrite (log_file, "z:            ");
 		//for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %1.4f", zL[q]); $fwrite (log_file, "\n");
