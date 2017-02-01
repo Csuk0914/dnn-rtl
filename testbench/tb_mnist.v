@@ -220,7 +220,7 @@ module MNIST_tb #(
 	end
 
 	always @(posedge cycle_clk) begin
-		#0;
+		#0; //let everything in the circuit finish before starting performance eval
 		num_train = num_train + 1;
 		sel_tc = (sel_tc == training_cases-1)? 0 : sel_tc + 1;
 
