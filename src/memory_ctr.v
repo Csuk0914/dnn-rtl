@@ -134,7 +134,7 @@ module hidden_layer_state_machine #( // This is state machinw, so it will input 
 	parameter L = 3,
 	parameter h = 1, //Index. Layer after input has h = 1, then 2 and so on
 	parameter cpc = p/z*fo+2,
-	parameter width = 1,
+	parameter width = 16,
 	parameter collection = 2*(L-h) - 1 //No. of AM and SM collections (SM means sigmoid prime memory)
 	// Note that no. of DM collections is always 2
 )(
@@ -463,7 +463,7 @@ module input_layer_state_machine #(
 	parameter z  = 8,
 	parameter L = 3,
 	parameter cpc = p/z*fo+2,
-	parameter width = 1,
+	parameter width = 1, //width of input data
 	parameter collection = 2*L - 1
 )(
 	input clk,
@@ -548,7 +548,7 @@ module act_ctr #(
 	parameter z  = 8,
 	parameter L = 3,
 	parameter cpc = 6,
-	parameter width = 16,
+	parameter width = 1, //width of input data
 	parameter collection = 2*L-1
 )(
 	input clk,
