@@ -18,8 +18,12 @@ sigmoid_sigmoidprime_table.v		// Look-up table for sigmoid and sigmoid prime fun
 
 
 NOTES:			
-Manual override required:
-Sigmoid and sigmoid prime files, if bit widths are changed
+Manual override required when bit widths are changed:
+	Sigmoid and sigmoid prime files - Refer to comments at top of /src/sigmoid_sigmoidprime_table.v and /scripts/actlut_generator.py_
+	Gaussian lists - Regenerate using /src/glorotnormal_init_generator.py and put new files in local Verilog folder on Windows
+	tb_mnist - Change parameters at top. Change gaussian file names in Data import block. That's all!
+
+Other manual overrides:
 Interleaver file, if interleaver parameters are changed. Also comment out higher m else if statements inside r_dither and w_dither in case of any issue while running smaller DNNs
 
 Constraints:
