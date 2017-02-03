@@ -170,9 +170,9 @@ module MNIST_tb #(
 	//The following variables store information about all output neurons
 	real  net_a_out[n[L-1]-1:0], //Actual 32-bit output of network
 			//a_minus_y[cpc-3:0],
+			delta[n[L-1]-1:0], //a-y
 			//spL[n[L-1]-1:0],
-			//zL[n[L-1]-1:0], //output layer z, i.e. just before taking final sigmoid
-			delta[n[L-1]-1:0]; //a-y
+			//zL[n[L-1]-1:0]; //output layer z, i.e. just before taking final sigmoid
 	integer net_y_out[n[L-1]-1:0]; //Ideal output y
 	
 	//The following variables store information of the 0th cycle (when cycle_index = 2 out of 17) as fed to the update processor
