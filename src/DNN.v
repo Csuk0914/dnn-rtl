@@ -140,9 +140,9 @@ module DNN #(
 				//y_out_alln[cycle_index-2] = y_out;
 				stored_maxactL_pos = (maxactL_singlepos==0) ? (cycle_index-2) : stored_maxactL_pos;
 				/* here maxactL_pos is trivially 0 and carries no information
-					since z[L-2]/fi[L-2] = 1, index of current output neuron = cycle_index-2
-					if condition is true, then current neuron is max value, so store cycle_index-2
-					if condition is false, as usual, retain previous value of stored_maxactL_pos */ 
+				since z[L-2]/fi[L-2] = 1, index of current output neuron = cycle_index-2
+				if condition is true, then current neuron is max value, so store cycle_index-2
+				if condition is false, as usual, retain previous value of stored_maxactL_pos */ 
 			end
 		end
 	end
