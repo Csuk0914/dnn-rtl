@@ -2,17 +2,17 @@
 
 module MNIST_tb #(
 	// DNN parameters to be passed
-	parameter width = 32,
+	parameter width = 16,
 	parameter width_in = 8,
-	parameter int_bits = 10,
-	parameter frac_bits = 21,
+	parameter int_bits = 3,
+	parameter frac_bits = 12,
 	parameter L = 3,
 	parameter [31:0]fo[0:L-2] = '{8, 8},
 	parameter [31:0]fi[0:L-2]  = '{128, 32},
 	parameter [31:0]z[0:L-2]  = '{512, 32},
 	parameter [31:0]n[0:L-1] = '{1024, 64, 16},
 	parameter Eta = 0.5,
-	parameter lamda = 0.25,
+	parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
 	parameter cost_type = 0, //0 for quadcost, 1 for xentcost
 	// Testbench parameters:
 	parameter training_cases = 10000, //number of cases to consider out of entire MNIST. Should be <= 50000
@@ -129,8 +129,8 @@ module MNIST_tb #(
 	reg [width-1:0] memL1[1999:0], memL2[1999:0]; //weight memories
 
 	initial begin
-		$readmemb("./gaussian_list/s136_frc21_int10.dat", memL1);
-		$readmemb("./gaussian_list/s40_frc21_int10.dat", memL2);
+		$readmemb("./gaussian_list/s136_frc12_int3.dat", memL1);
+		$readmemb("./gaussian_list/s40_frc12_int3.dat", memL2);
 		$readmemb("train_idealout.dat", y_mem);
 		$readmemh("train_input.dat", a_mem);
 	end
@@ -170,9 +170,9 @@ module MNIST_tb #(
 	//The following variables store information about all output neurons
 	real  net_a_out[n[L-1]-1:0], //Actual 32-bit output of network
 			//a_minus_y[cpc-3:0],
-			delta[n[L-1]-1:0], //a-y
 			//spL[n[L-1]-1:0],
-			zL[n[L-1]-1:0]; //output layer z, i.e. just before taking final sigmoid
+			//zL[n[L-1]-1:0], //output layer z, i.e. just before taking final sigmoid
+			delta[n[L-1]-1:0]; //a-y
 	integer net_y_out[n[L-1]-1:0]; //Ideal output y
 	
 	//The following variables store information of the 0th cycle (when cycle_index = 2 out of 17) as fed to the update processor
@@ -205,9 +205,9 @@ module MNIST_tb #(
 			// spL[cycle_index-2] = DNN.output_layer_block.spL/2.0**frac_bits - DNN.output_layer_block.spL[width-1]*2.0**(1+int_bits);
 			delta[cycle_index-2] = DNN.output_layer_block.delta/2.0**frac_bits - DNN.output_layer_block.delta[width-1]*2.0**(1+int_bits);
 		end
-		if (cycle_index>0 && cycle_index<=cpc-2) begin //z of output layer
+		/*if (cycle_index>0 && cycle_index<=cpc-2) begin //z of output layer
 			zL[cycle_index-1] = DNN.hidden_layer_block_1.FF_processor.sigmoid_function_set[0].s_function.s/2.0**frac_bits - DNN.hidden_layer_block_1.FF_processor.sigmoid_function_set[0].s_function.s[width-1]*2.0**(1+int_bits);
-		end
+		end*/
 	end
 	////////////////////////////////////////////////////////////////////////////////////
 	
