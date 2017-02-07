@@ -23,7 +23,7 @@ module DNN #(
 	parameter [31:0] z [0:L-2]  = '{8, 4}, //Degree of parallelism of all junctions. No. of junctions = L-1
 	parameter [31:0] n [0:L-1] = '{16, 8, 4}, //No. of neurons in every layer
 	//parameter eta = `eta, //eta is NOT a parameter any more. See input section for details
-	parameter lamda = 1, //L2 regularization
+	//parameter lamda = 1, //L2 regularization
 	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
 	parameter maxactL_pos_width = (z[L-2]/fi[L-2]==1) ? 1 : $clog2(z[L-2]/fi[L-2]),
 	parameter cpc =  n[0] * fo[0] / z[0] + 2	//clocks per cycle block = Weights/parallelism. 2 extra needed because FF is 3 stage operation
@@ -74,7 +74,7 @@ module DNN #(
 		.fi(fi[0]), 
 		.fo(fo[0]), 
 		//.eta(eta), 
-		.lamda(lamda), 
+		//.lamda(lamda), 
 		.width(width), 
 		.width_in(width_in),
 		.int_bits(int_bits),
@@ -93,7 +93,7 @@ module DNN #(
 		.fi(fi[1]), 
 		.fo(fo[1]), 
 		//.eta(eta), 
-		.lamda(lamda), 
+		//.lamda(lamda), 
 		.width(width),
 		.int_bits(int_bits),
 		.frac_bits(frac_bits),

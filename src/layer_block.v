@@ -8,7 +8,7 @@ module input_layer_block #(
 	parameter fi = 4, //Fan-in of neurons in next layer
 	parameter fo = 2, //Fan-out of neurons in this input layer
 	//parameter eta = 0.05, //Learning rate
-	parameter lamda = 1, //Regularization parameter
+	//parameter lamda = 1, //Regularization parameter
 	parameter width = 16, //Bit width
 	parameter width_in = 1, //input data width
 	parameter int_bits = 5, //No. of bits in integer part
@@ -182,7 +182,7 @@ module input_layer_block #(
 	 	.n(n), 
 	 	.z(z), 
 	 	//.eta(eta), 
-	 	.lamda(lamda),
+	 	//.lamda(lamda),
 	 	.width(width),
 		.int_bits(int_bits),
 		.frac_bits(frac_bits)
@@ -228,7 +228,7 @@ module hidden_layer_block #(
 	parameter fi = 4,
 	parameter fo = 2,
 	//parameter eta = 0.05,
-	parameter lamda = 1,
+	//parameter lamda = 1,
 	parameter width = 16, 
 	parameter int_bits = 5, //No. of bits in integer part. Needed for all processors
 	parameter frac_bits = 10, //No. of bits in fractional part. Needed for UP_processor
@@ -445,7 +445,7 @@ module hidden_layer_block #(
 	 	.n(n), 
 	 	.z(z), 
 	 	//.eta(eta), 
-	 	.lamda(lamda),
+	 	//.lamda(lamda),
 	 	.width(width),
 		.int_bits(int_bits),
 		.frac_bits(frac_bits)

@@ -12,7 +12,7 @@ module MNIST_tb #(
 	parameter [31:0]z[0:L-2]  = '{512, 32},
 	parameter [31:0]n[0:L-1] = '{1024, 64, 16},
 	parameter Eta = 0.5,
-	parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
+	//parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
 	parameter cost_type = 0, //0 for quadcost, 1 for xentcost
 	// Testbench parameters:
 	parameter training_cases = 10000, //number of cases to consider out of entire MNIST. Should be <= 50000
@@ -52,7 +52,7 @@ module MNIST_tb #(
 		.z(z), 
 		.n(n), 
 		//.eta(eta), 
-		.lamda(lamda),
+		//.lamda(lamda),
 		.cost_type(cost_type)
 	) DNN (
 		.a_in(a_in),

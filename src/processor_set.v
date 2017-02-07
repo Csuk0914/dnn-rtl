@@ -209,9 +209,9 @@ module UP_processor_set #(
 	parameter z  = 4,
 	parameter width =16,
 	parameter int_bits = 5,
-	parameter frac_bits = 10, //No. of bits in fractional part
+	parameter frac_bits = 10 //No. of bits in fractional part
 	//parameter eta = 0.05,
-	parameter lamda = 1
+	//parameter lamda = 1
 )(
 	// Note that updates are done for z weights in a junction and n neurons in succeeding layer
 	input [width-1:0] eta,
@@ -224,7 +224,7 @@ module UP_processor_set #(
 );
 
 	//reg [width-1:0] Eta = -eta*2**frac_bits;
-	reg [width-1:0] Lamda = lamda*2**frac_bits;
+	//reg [width-1:0] Lamda = lamda*2**frac_bits;
 	
 	// Unpack
 	wire [width-1:0] a [z-1:0];
@@ -276,9 +276,14 @@ module UP_processor_set #(
 				Eg: Say int_bits = 5, old bias = 28 and delta bias = 6
 				Then new bias = 29+6 = 35 = -30 (due to wrap-around), which is wrong
 				So we include something like lamda = 0.9, so that if new bias is >28.8 or <-28.8, then do not update */
-		assign b_UP[gv_i] = (b_new[gv_i]<(2**(width-1)-1)*lamda||
+		/*assign b_UP[gv_i] = (b_new[gv_i]<(2**(width-1)-1)*lamda||
 					b_new[gv_i]>(2**(width-1)-1)*(2-lamda))? 
-					b_new [gv_i] : b[gv_i];
+					b_new [gv_i] : b[gv_i]; */
+		
+		assign b_UP[gv_i] = ( b_new[gv_i][width-1]==b[gv_i][width-1] //check if old and new values have same sign. If not, overflow may have occurred
+									|| b[gv_i][width-1]!=delta_b[gv_i][width-1] ) ? //OR check if old value and change in value have different signs. If same, overflow may have occurred
+									// This takes care of both cases: [old=28, new=-30 (wrap-around is BAD)] and [old=1, new=-1 (this is FINE)]
+									b_new[gv_i] : b[gv_i]; //update to new value if all is good, otherwise stick to old value
 
 		for (gv_j = 0; gv_j<fi; gv_j = gv_j + 1)
 		begin :weight_update
@@ -286,9 +291,14 @@ module UP_processor_set #(
 			adder #(.width(width)) update_w(w[gv_i*fi+gv_j], delta_w[gv_i*fi+gv_j], w_new[gv_i*fi+gv_j]);
 			
 			// lamda factor controlled update of weight (here lamda is NOT used for regularization)
-			assign w_UP[gv_i*fi+gv_j] = (w_new[gv_i*fi+gv_j]<(2**(width-1)-1)*lamda ||
+			/*assign w_UP[gv_i*fi+gv_j] = (w_new[gv_i*fi+gv_j]<(2**(width-1)-1)*lamda ||
 							w_new[gv_i*fi+gv_j]>(2**(width-1)-1)*(2-lamda))? 
-							w_new [gv_i*fi+gv_j] : w [gv_i*fi+gv_j];
+							w_new [gv_i*fi+gv_j] : w [gv_i*fi+gv_j];*/
+
+			assign w_UP[gv_i*fi+gv_j] = ( w_new[gv_i*fi+gv_j][width-1]==w[gv_i*fi+gv_j][width-1] //check if old and new values have same sign. If not, overflow may have occurred
+									|| w[gv_i*fi+gv_j][width-1]!=delta_w[gv_i*fi+gv_j][width-1] ) ? //OR check if old value and change in value have different signs. If same, overflow may have occurred
+									// This takes care of both cases: [old=28, new=-30 (wrap-around is BAD)] and [old=1, new=-1 (this is FINE)]
+									w_new[gv_i*fi+gv_j] : w[gv_i*fi+gv_j]; //update to new value if all is good, otherwise stick to old value
 
 			//Regularization: (NOT DONE, so python L2 parameter = 0)
 			//multiplier #(.width(width),.int_bits(int_bits)) mul_a_d1(Lamda, w_new [gv_i*fi+gv_j], w_UP[gv_i*fi+gv_j]);
