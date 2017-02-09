@@ -162,6 +162,7 @@ module BP_processor_set #(
 	wire [width-1:0] partial_d [z-1:0];
 	wire [width-1:0] w [z-1:0];
 	wire [width-1:0] deltap [z-1:0];
+	wire [width:0] deltap_raw [z-1:0];
 	wire [width-1:0] delta_a [z-1:0];
 	wire [width-1:0] delta_w [z-1:0];
 
@@ -191,7 +192,9 @@ module BP_processor_set #(
 		// [Eg for ppt example: Note that (w.d).f'(z) can be written as w0*d0*f'(z0) + w1*d0*f'(z0) + ... and then later ... w36*d2*f'(z2) ... and so on]
 			multiplier #(.width(width),.int_bits(int_bits)) a_d (deltan[gv_i], sp[gv_i*fi+gv_j], delta_a[gv_i*fi+gv_j]); //delta_a = d*f'
 			multiplier #(.width(width),.int_bits(int_bits)) w_d (delta_a[gv_i*fi+gv_j], w[gv_i*fi+gv_j], delta_w[gv_i*fi+gv_j]); //delta_w = w*d*f'
-			adder #(.width(width)) acc (delta_w[gv_i*fi+gv_j], partial_d[gv_i*fi+gv_j], deltap[gv_i*fi+gv_j]); //Add above to respectuve delp value
+			adder #(.width(width+1)) acc ({delta_w[gv_i*fi+gv_j][width-1], delta_w[gv_i*fi+gv_j]}, {partial_d[gv_i*fi+gv_j][width-1], partial_d[gv_i*fi+gv_j]}, deltap_raw[gv_i*fi+gv_j]); //Add above to respectuve delp value
+			assign deltap[gv_i*fi+gv_j] = (deltap_raw[gv_i*fi+gv_j][width:width-1]==2'b10)? {1'b1, {(width-1){1'b0}}} :
+									(deltap_raw[gv_i*fi+gv_j][width:width-1]==2'b01)? {1'b0, {(width-1){1'b1}}} : deltap_raw[gv_i*fi+gv_j][width-1:0]; //this is the saturation logic for width+1 bit adder
 		end
 	end
 	endgenerate
