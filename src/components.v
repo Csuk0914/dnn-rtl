@@ -56,7 +56,7 @@ module multiplier_set #(
 endmodule
 
 
-//[todo] increase number of bits to prevent overflow
+// Saturating adder
 module adder #(
 	parameter width = 16
 )(
@@ -64,15 +64,16 @@ module adder #(
 	input [width-1:0] b,
 	output [width-1:0] z
 );
-	assign z = a+b; //(a[14:0] - a[15] * 2 ** 15) + (b[14:0] - b[15] * 2 ** 15);
+	wire [width-1:0] z_raw;
+	assign z_raw = a+b; //(a[14:0] - a[15] * 2 ** 15) + (b[14:0] - b[15] * 2 ** 15);
+	assign z = (a[width-1]==b[width-1] && z_raw[width-1]!=b[width-1]) ? //check for overflow
+					(z_raw[width-1]==1'b0) ? //if overflow yes, then check which side
+					{1'b1,{(width-1){1'b0}}} : {1'b0,{(width-1){1'b1}}} //most negative or most positive value, depending on z_raw MSB
+					: z_raw; //if no overflow, then z = z_raw 
 
-	always @(a, b)
-		if(a[width-1]==b[width-1] && z[width-1]!=b[width-1]) begin
-			$display("Overflow in adder.");
-			$stop;
-		end 
-
-
+	always @(a, b) begin
+		if (a[width-1]==b[width-1] && z_raw[width-1]!=b[width-1]) $display("Adder overflow in %m"); //display hierarchy
+	end
 endmodule
 
 
