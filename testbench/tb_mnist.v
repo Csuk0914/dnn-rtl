@@ -4,8 +4,8 @@ module MNIST_tb #(
 	// DNN parameters to be passed
 	parameter width = 8,
 	parameter width_in = 8,
-	parameter int_bits = 1,
-	parameter frac_bits = 6,
+	parameter int_bits = 2,
+	parameter frac_bits = width-int_bits-1,
 	parameter L = 3,
 	parameter [31:0]fo[0:L-2] = '{8, 8},
 	parameter [31:0]fi[0:L-2]  = '{128, 32},
@@ -129,8 +129,8 @@ module MNIST_tb #(
 	reg [width-1:0] memL1[1999:0], memL2[1999:0]; //weight memories
 
 	initial begin
-		$readmemb("./gaussian_list/s136_frc6_int1.dat", memL1);
-		$readmemb("./gaussian_list/s40_frc6_int1.dat", memL2);
+		$readmemb("./gaussian_list/s136_frc5_int2.dat", memL1);
+		$readmemb("./gaussian_list/s40_frc5_int2.dat", memL2);
 		$readmemb("train_idealout.dat", y_mem);
 		$readmemh("train_input.dat", a_mem);
 	end
