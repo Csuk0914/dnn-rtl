@@ -128,9 +128,12 @@ module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	endgenerate
 
 	adder #(.width(width_TA)) bias_adder (partial_s[fi*2-2], {{$clog2(fi) {b[width-1]}}, b}, s_raw); // The 2nd input is a sign extension of 'width bit' bias to 'width_TA bit'
-	assign s = (s_raw[width_TA-1]==0 && s_raw[width_TA-2:width-1]!=0) ? {1'b0, {(width-1){1'b1}}} : 
-		(s_raw[width_TA-1]==1 && s_raw[width_TA-2:width-1]!={(width_TA-width) {1'b1}}) ? {1'b1, {(width-1){1'b0}}} : 
-		s_raw[width-1:0];
+	// s_raw now has an extra portion consisting of width_TA-width bits and the regular width-bit portion	
+	assign s = (s_raw[width_TA-1]==0 && s_raw[width_TA-2:width-1]!=0) ? //check that s_raw is positive and greater than max positive width-bit value
+					{1'b0, {(width-1){1'b1}}} : //If yes, assign s to the max positive width-bit value
+					(s_raw[width_TA-1]==1 && s_raw[width_TA-2:width-1]!={(width_TA-width){1'b1}}) ? //If no, now check that s_raw is negative and less than max negative width-bit value
+					{1'b1, {(width-1){1'b0}}} : //If yes, assign s to the max negative width-bit value
+					s_raw[width-1:0]; //If still no, then s_raw is between the limits allowed by width bits. So just assign s to the LSB width bits of s_raw
 	sigmoid_t #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) s_table (clk, s, sigmoid);
 	sig_prime #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) sp_table (clk, s, sp);
 endmodule
@@ -162,7 +165,6 @@ module BP_processor_set #(
 	wire [width-1:0] partial_d [z-1:0];
 	wire [width-1:0] w [z-1:0];
 	wire [width-1:0] deltap [z-1:0];
-	wire [width:0] deltap_raw [z-1:0];
 	wire [width-1:0] delta_a [z-1:0];
 	wire [width-1:0] delta_w [z-1:0];
 
@@ -192,9 +194,7 @@ module BP_processor_set #(
 		// [Eg for ppt example: Note that (w.d).f'(z) can be written as w0*d0*f'(z0) + w1*d0*f'(z0) + ... and then later ... w36*d2*f'(z2) ... and so on]
 			multiplier #(.width(width),.int_bits(int_bits)) a_d (deltan[gv_i], sp[gv_i*fi+gv_j], delta_a[gv_i*fi+gv_j]); //delta_a = d*f'
 			multiplier #(.width(width),.int_bits(int_bits)) w_d (delta_a[gv_i*fi+gv_j], w[gv_i*fi+gv_j], delta_w[gv_i*fi+gv_j]); //delta_w = w*d*f'
-			adder #(.width(width+1)) acc ({delta_w[gv_i*fi+gv_j][width-1], delta_w[gv_i*fi+gv_j]}, {partial_d[gv_i*fi+gv_j][width-1], partial_d[gv_i*fi+gv_j]}, deltap_raw[gv_i*fi+gv_j]); //Add above to respectuve delp value
-			assign deltap[gv_i*fi+gv_j] = (deltap_raw[gv_i*fi+gv_j][width:width-1]==2'b10)? {1'b1, {(width-1){1'b0}}} :
-									(deltap_raw[gv_i*fi+gv_j][width:width-1]==2'b01)? {1'b0, {(width-1){1'b1}}} : deltap_raw[gv_i*fi+gv_j][width-1:0]; //this is the saturation logic for width+1 bit adder
+			adder #(.width(width)) acc (delta_w[gv_i*fi+gv_j], partial_d[gv_i*fi+gv_j], deltap[gv_i*fi+gv_j]); //Add above to respective delp value
 		end
 	end
 	endgenerate
