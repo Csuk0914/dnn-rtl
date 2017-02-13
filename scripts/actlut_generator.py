@@ -2,6 +2,7 @@
 # Output files from here used in sigmoid_sigmoidprime_table.v in dnn-rtl/src
 # 'size' and 'maxdomain' here should match with 'lut_size' and 'maxdomain' in the RTL
 # wordbits for sigmoid is USUALLY equal to frac_bits in the RTL, but may be less
+# wordbits for sigmoid_prime is equal to (wordbits for sigmoid) - 2
 # Output files from here may be deleted after copy-pasting to dnn-rtl/src
 
 import numpy as np
@@ -15,7 +16,7 @@ def sigmoid_prime(z):
     return sigmoid(z)*(1-sigmoid(z))
 
 
-def sigmoid_table_gen(size=4096, wordbits=12, maxdomain=8):
+def sigmoid_table_gen(size=256, wordbits=5, maxdomain=4):
     '''
     size: Total no. of cells in LUT
     wordbits: No. of bits in each cell
@@ -41,7 +42,7 @@ def sigmoid_table_gen(size=4096, wordbits=12, maxdomain=8):
     table.close()
     
     
-def sigmoidprime_table_gen(size=4096, wordbits=10, maxdomain=8):
+def sigmoidprime_table_gen(size=256, wordbits=3, maxdomain=4):
     '''
     KEY DIFFERENCE: sigmoidprime is always <0.25, so 1st 2 frac bits are always 0. So wordbits = actual frac bits - 2
     size: Total no. of cells in LUT

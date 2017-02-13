@@ -10,7 +10,7 @@ module input_layer_block #(
 	//parameter eta = 0.05, //Learning rate
 	//parameter lamda = 1, //Regularization parameter
 	parameter width = 16, //Bit width
-	parameter width_in = 1, //input data width
+	parameter width_in = 8, //input data width
 	parameter int_bits = 5, //No. of bits in integer part
 	parameter frac_bits = 10, //No. of bits in fractional part
 	parameter L = 2, //Total no. of layers in network
@@ -22,7 +22,7 @@ module input_layer_block #(
 	input [$clog2(cpc)-1:0] cycle_index, //Index of clock cycle
 	input cycle_clk, //1 cycle_clk = cpc clks
 	input [width-1:0] eta, //Learning rate
-	input [width_in*z/fo-1:0] act0, //No. of activations coming per clock from external environment, each is 1b = 0 or 1. z weights processed in 1 cycle, fo weights = 1 activation, hence z/fo
+	input [width_in*z/fo-1:0] act0, //No. of activations coming per clock from external environment, each is width_in bits. z weights processed in 1 cycle, fo weights = 1 activation, hence z/fo
 	input [width*z/fi-1:0] d1, //No. of deln values coming per clock from next layer, each is width bits. z weights processed in 1 cycle, fi weights = 1 delta, hence z/fi
 	output [width*z/fi-1:0] act1, //No. of actn values computed per clock and going to next layer, each is width bits. z weights processed in 1 cycle, fi weights = 1 act out, hence z/fi
 	output [width*z/fi-1:0] sp1 //Every act1 has associated sp1
@@ -41,7 +41,7 @@ module input_layer_block #(
 
 // Datapath signals: MUXes, memories, processor sets
 	wire [width_in*z-1:0] act0_FF, act0_UP; //width_in bit activation values
-	wire [width*z-1:0] act0_FF_in, act0_UP_in; //extended to width bits act values for processor set usage
+	wire [width*z-1:0] act0_FF_in, act0_UP_in; //convert to width bits act values for processor set usage
 	wire [width*z-1:0] w, w_UP;	//old and new weights
 	wire [width*z/fi-1:0] b, b_UP; //old and new biases
 	wire [width_in*collection*z-1:0] act0_mem_in, act_mem_out; //act memory in/out
@@ -152,8 +152,13 @@ module input_layer_block #(
 	* In the RTL, these need to get converted back to original 0-1 range, and then to width bits with int_bits and frac_bits (Eg: 1+5+10 = 16b)
 	* Obviously the sign bit is always 0 and all the int_bits are 0 (since integer part is always 0) => Total (int_bits+1) 0s
 	* The 1st 8 fract_bits are the 8b input data and remaining frac_bits are 0 */
-		assign act0_FF_in[width*(gv_i+1)-1:width*gv_i] = {{(int_bits+1){1'b0}}, act0_FF[width_in*(gv_i+1)-1:gv_i*width_in], {(frac_bits-width_in){1'b0}}};
-		assign act0_UP_in[width*(gv_i+1)-1:width*gv_i] = {{(int_bits+1){1'b0}}, act0_UP[width_in*(gv_i+1)-1:gv_i*width_in], {(frac_bits-width_in){1'b0}}};
+		if (width_in<=frac_bits) begin //this means the entire width_in bits of input data can fit in the frac_bits slot
+			assign act0_FF_in[width*(gv_i+1)-1:width*gv_i] = {{(int_bits+1){1'b0}}, act0_FF[width_in*(gv_i+1)-1:gv_i*width_in], {(frac_bits-width_in){1'b0}}};
+			assign act0_UP_in[width*(gv_i+1)-1:width*gv_i] = {{(int_bits+1){1'b0}}, act0_UP[width_in*(gv_i+1)-1:gv_i*width_in], {(frac_bits-width_in){1'b0}}};
+		end else begin //all width_in bits of input data cannot fit, so truncate it
+			assign act0_FF_in[width*(gv_i+1)-1:width*gv_i] = {{(int_bits+1){1'b0}}, act0_FF[width_in*(gv_i+1)-1:gv_i*width_in+width_in-frac_bits]};
+			assign act0_UP_in[width*(gv_i+1)-1:width*gv_i] = {{(int_bits+1){1'b0}}, act0_UP[width_in*(gv_i+1)-1:gv_i*width_in+width_in-frac_bits]};
+		end
 	end
 	endgenerate
 	

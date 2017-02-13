@@ -2,18 +2,18 @@
 
 module MNIST_tb #(
 	// DNN parameters to be passed
-	parameter width = 16,
+	parameter width = 8,
 	parameter width_in = 8,
-	parameter int_bits = 3,
-	parameter frac_bits = 12,
+	parameter int_bits = 2,
+	parameter frac_bits = width-int_bits-1,
 	parameter L = 3,
 	parameter [31:0]fo[0:L-2] = '{8, 8},
 	parameter [31:0]fi[0:L-2]  = '{128, 32},
 	parameter [31:0]z[0:L-2]  = '{512, 32},
 	parameter [31:0]n[0:L-1] = '{1024, 64, 16},
-	parameter Eta = 0.5,
+	parameter Eta = 0.125,
 	//parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
-	parameter cost_type = 0, //0 for quadcost, 1 for xentcost
+	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
 	// Testbench parameters:
 	parameter training_cases = 10000, //number of cases to consider out of entire MNIST. Should be <= 50000
 	parameter total_training_cases = 10*training_cases, //total number of training cases over all epochs
@@ -129,8 +129,8 @@ module MNIST_tb #(
 	reg [width-1:0] memL1[1999:0], memL2[1999:0]; //weight memories
 
 	initial begin
-		$readmemb("./gaussian_list/s136_frc12_int3.dat", memL1);
-		$readmemb("./gaussian_list/s40_frc12_int3.dat", memL2);
+		$readmemb("./gaussian_list/s136_frc5_int2.dat", memL1);
+		$readmemb("./gaussian_list/s40_frc5_int2.dat", memL2);
 		$readmemb("train_idealout.dat", y_mem);
 		$readmemh("train_input.dat", a_mem);
 	end
