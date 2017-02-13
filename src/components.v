@@ -71,9 +71,9 @@ module adder #(
 					{1'b1,{(width-1){1'b0}}} : {1'b0,{(width-1){1'b1}}} //most negative or most positive value, depending on z_raw MSB
 					: z_raw; //if no overflow, then z = z_raw 
 
-	always @(a, b) begin
+	/*always @(a, b) begin
 		if (a[width-1]==b[width-1] && z_raw[width-1]!=b[width-1]) $display("Adder overflow in %m"); //display hierarchy
-	end
+	end*/
 endmodule
 
 
