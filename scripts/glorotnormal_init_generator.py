@@ -17,6 +17,10 @@ def glorotnormal_init_generate(fi, fo, int_bits, frac_bits, filename='s136_frc21
     f_bin.close()
     f_dec.close()
 
-# ONLY CHANGE THIS SECTION TO REGENERATE
-glorotnormal_init_generate(128,8,2,5, filename='/s136_frc5_int2')
-glorotnormal_init_generate(32,8,2,5, filename='/s40_frc5_int2')
+####################### ONLY CHANGE THIS SECTION TO REGENERATE ################
+int_bits = 1
+frac_bits = 8
+###############################################################################
+
+glorotnormal_init_generate(128,8,int_bits,frac_bits, filename='/s136_frc{0}_int{1}'.format(frac_bits,int_bits))
+glorotnormal_init_generate(32,8,int_bits,frac_bits, filename='/s40_frc{0}_int{1}'.format(frac_bits,int_bits))

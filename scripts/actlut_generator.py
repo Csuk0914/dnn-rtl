@@ -16,7 +16,7 @@ def sigmoid_prime(z):
     return sigmoid(z)*(1-sigmoid(z))
 
 
-def sigmoid_table_gen(size=256, wordbits=5, maxdomain=4):
+def sigmoid_table_gen(size=1024, wordbits=8, maxdomain=2):
     '''
     size: Total no. of cells in LUT
     wordbits: No. of bits in each cell
@@ -42,7 +42,7 @@ def sigmoid_table_gen(size=256, wordbits=5, maxdomain=4):
     table.close()
     
     
-def sigmoidprime_table_gen(size=256, wordbits=3, maxdomain=4):
+def sigmoidprime_table_gen(size=1024, wordbits=6, maxdomain=2):
     '''
     KEY DIFFERENCE: sigmoidprime is always <0.25, so 1st 2 frac bits are always 0. So wordbits = actual frac bits - 2
     size: Total no. of cells in LUT
