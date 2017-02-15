@@ -1,9 +1,7 @@
 # Generate look up tables for activation and activation derivative
 # Output files from here used in sigmoid_sigmoidprime_table.v in dnn-rtl/src
 # 'size' and 'maxdomain' here should match with 'lut_size' and 'maxdomain' in the RTL
-# wordbits for sigmoid is USUALLY equal to frac_bits in the RTL, but may be less
-# wordbits for sigmoid_prime is equal to (wordbits for sigmoid) - 2
-# Output files from here may be deleted after copy-pasting to dnn-rtl/src
+# 'wordbits' is USUALLY equal to frac_bits in the RTL, but may be less
 
 import numpy as np
 
@@ -16,7 +14,7 @@ def sigmoid_prime(z):
     return sigmoid(z)*(1-sigmoid(z))
 
 
-def sigmoid_table_gen(size=1024, wordbits=8, maxdomain=2):
+def sigmoid_table_gen(size=4096, wordbits=12, maxdomain=8):
     '''
     size: Total no. of cells in LUT
     wordbits: No. of bits in each cell
@@ -29,7 +27,7 @@ def sigmoid_table_gen(size=1024, wordbits=8, maxdomain=2):
     '''
     addr_sint_bits = 1 + int(np.log2(maxdomain)) #no. of sign + integer bits
     addr_frac_bits = int(np.log2(size)) - addr_sint_bits
-    table = open("sigmoid_table.v", "wb")   
+    table = open("sigmoidtable_size{0}_word{1}_maxdom{2}.dat".format(size,wordbits,maxdomain), "wb")   
     for n in xrange(-size/2,size/2):
         z = float(n) / 2**addr_frac_bits #this ensures that z goes from -maxdomain to maxdomain
         s = sigmoid(z)
@@ -42,7 +40,7 @@ def sigmoid_table_gen(size=1024, wordbits=8, maxdomain=2):
     table.close()
     
     
-def sigmoidprime_table_gen(size=1024, wordbits=6, maxdomain=2):
+def sigmoidprime_table_gen(size=4096, wordbits=12, maxdomain=8):
     '''
     KEY DIFFERENCE: sigmoidprime is always <0.25, so 1st 2 frac bits are always 0. So wordbits = actual frac bits - 2
     size: Total no. of cells in LUT
@@ -56,7 +54,7 @@ def sigmoidprime_table_gen(size=1024, wordbits=6, maxdomain=2):
     '''
     addr_sint_bits = 1 + int(np.log2(maxdomain)) #no. of sign + integer bits
     addr_frac_bits = int(np.log2(size)) - addr_sint_bits
-    table = open("sigmoidprime_table.v", "wb")   
+    table = open("sigmoidprimetable_size{0}_word{1}_maxdom{2}.dat".format(size,wordbits,maxdomain), "wb")   
     for n in xrange(-size/2,size/2):
         z = float(n) / 2**addr_frac_bits #this ensures that z goes from -maxdomain to maxdomain
         s = 4*sigmoid_prime(z) #multiply by 4 to stretch range to [0,1]
@@ -69,5 +67,11 @@ def sigmoidprime_table_gen(size=1024, wordbits=6, maxdomain=2):
     table.close()
 
 
-sigmoid_table_gen()
-sigmoidprime_table_gen()
+########################## ONLY CHANGE THIS SECTION ###########################
+size = 4096
+wordbits = 9
+maxdomain = 4
+###############################################################################
+
+sigmoid_table_gen(size=size, wordbits=wordbits, maxdomain=maxdomain)
+sigmoidprime_table_gen(size=size, wordbits=wordbits-2, maxdomain=maxdomain)
