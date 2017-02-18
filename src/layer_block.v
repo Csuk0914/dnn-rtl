@@ -666,7 +666,7 @@ module output_layer_block #(
 		(deltaL_mem_out, r_pt, deltaL); //choose collection and output chosen delta value to previous layer
 
 
-/*	// Threshold width bit outputs to get 1b outputs (DEPENDING ON ACTIVATION)
+	// Threshold width bit outputs to get 1b outputs (DEPENDING ON ACTIVATION)
 	// Right now this supports activations with only nonnegative values (like sigmoid and relu)
 	// [todo] add support for negative activations like tanh if needed
 	/* genvar gv_i;
