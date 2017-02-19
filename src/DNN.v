@@ -129,6 +129,7 @@ module DNN #(
 	always @(posedge clk) begin
 		if (cycle_index>1) begin //Get chunks of y_out and actL from z/fi output neurons for cpc-2 clocks => Total z/fi*(n*fi/z) = n = No. of output neurons
 			stored_maxactL = final_maxactL; //This is the final_maxactL just generated from the new actL values. This line behaves like a DFF
+			/****************** DELETE THIS LINE if z[L-2]/fi[L-2]>1 ************************
 			if (z[L-2]/fi[L-2]>1) begin
 				//y_out_alln[z[L-2]/fi[L-2]*(cycle_index-2) +: z[L-2]/fi[L-2]-1] = y_out;
 				if (maxactL_singlepos==0) begin
@@ -136,14 +137,14 @@ module DNN #(
 					stored_maxactL_pos[$clog2(z[L-2]/fi[L-2])-1:0] = maxactL_pos;
 				end //else retain previous value of stored_maxactL_pos
 			end
-			else begin //if only 1 output neuron gets computed every clk
+			else //if only 1 output neuron gets computed every clk
+			******************** DELETE THIS LINE if z[L-2]/fi[L-2]>1 **********************/
 				//y_out_alln[cycle_index-2] = y_out;
 				stored_maxactL_pos = (maxactL_singlepos==0) ? (cycle_index-2) : stored_maxactL_pos;
 				/* here maxactL_pos is trivially 0 and carries no information
 				since z[L-2]/fi[L-2] = 1, index of current output neuron = cycle_index-2
 				if condition is true, then current neuron is max value, so store cycle_index-2
 				if condition is false, as usual, retain previous value of stored_maxactL_pos */ 
-			end
 		end
 	end
 	always @(posedge cycle_clk) begin

@@ -22,6 +22,10 @@ Manual override required when bit widths are changed:
 	Sigmoid and sigmoid prime files - Refer to comments at top of /src/sigmoid_sigmoidprime_table.v and /scripts/actlut_generator.py_
 	Gaussian lists - Regenerate using /src/glorotnormal_init_generator.py and put new files in local Verilog folder on Windows
 	tb_mnist - Change parameters at top. Change gaussian file names in Data import block. That's all!
+	
+Manual overrides required when network parameters are changed:
+	DNN.v - Delete these 2 lines when applicable:
+	/****************** DELETE THIS LINE if z[L-2]/fi[L-2]>1 ************************
 
 Other manual overrides:
 Interleaver file, if interleaver parameters are changed. Also comment out higher m else if statements inside r_dither and w_dither in case of any issue while running smaller DNNs
