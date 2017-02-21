@@ -68,7 +68,7 @@ module MNIST_tb #(
 	////////////////////////////////////////////////////////////////////////////////////
 	// Set Clock, Cycle Clock, Reset, eta
 	////////////////////////////////////////////////////////////////////////////////////
-	initial #91 reset = 0;
+	initial #81 reset = 0;
 
 	initial begin
 		eta = Eta * (2 ** frac_bits); //convert the Eta to fix point
@@ -119,20 +119,43 @@ module MNIST_tb #(
 	////////////////////////////////////////////////////////////////////////////////////
 	// Data import block
 	// This is specific to 1024 inputs and 16 outputs
-	/* train_input.dat contains 50000 MNIST pattern. Each pattern contain 28*28 pixels which is 8 bit gray scale.
+	/* train_input.dat contains 50000 MNIST patterns. Each pattern contain 28*28 pixels which is 8 bit gray scale.
 		1 line is one pattern with 784 8bit hex. Values from 784-1023 are set to 0 */
-	/* train_idealout.dat is the data set for 50000 correct result of training data. There are 10 bits one-hot represent 10 digital number.
+	/* train_idealout.dat is the data set for 50000 correct results of training data. There are 10 bits one-hot representing 10 numbers from 0-9.
 		1 line is one pattern with 10 one-hot binary. Values from 10-15 are set to 0 */
 	////////////////////////////////////////////////////////////////////////////////////
-	reg [width_in-1:0] a_mem[training_cases-1:0][783:0]; //inputs
-	reg y_mem[training_cases-1:0][9:0]; //ideal outputs
+	
 	reg [width-1:0] memL1[1999:0], memL2[1999:0]; //weight memories
-
+	
+	/* SIMULATOR NOTES:
+	*	Modelsim can read a input file with spaces and assign it in natural counting order
+		Eg: The line a b c d e f g h i j when written to an input vector [9:0], will be written as [0]=a, [1]=b, ..., [9]=j
+		This is opposite to the opposite counting order naturally followed in hardware, and is possible because of the spaces in the input file
+	*	Vivado cannot read an input file with spaces, so when it reads a packed input file, it assigns in hardware order (i.e. opposite counting order)
+		Eg: The line abcdefghij when written to an input vector [9:0], will be written as [9]=a, [8]=b, ..., [0]=j
+	*	The Modelsim version was done first, it works and also shows up nicely in the output log files since counting order is natural
+		So we will force the Vivado version to have natural counting order in hardware
+	* SIDE NOTE: Please keep only 1 copy of the data (Gaussian lists and training I/O) in the Verilog folder. Don't create extra for Vivado
+	KEEP 1 OF THE 2 FOLLOWING PORTIONS AND COMMENT OUT THE OTHER ONE */
+	
+	// MODELSIM 
+	/*reg [width_in-1:0] a_mem[training_cases-1:0][783:0]; //inputs
+	reg y_mem[training_cases-1:0][9:0]; //ideal outputs
 	initial begin
 		$readmemb("./gaussian_list/s136_frc9_int2.dat", memL1);
-		$readmemb("./gaussian_list/s40_frc9_int2.dat", memL2);
-		$readmemb("train_idealout.dat", y_mem);
-		$readmemh("train_input.dat", a_mem);
+      $readmemb("./gaussian_list/s40_frc9_int2.dat", memL2);
+      $readmemb("train_idealout_spaced.dat", y_mem);
+      $readmemh("train_input_spaced.dat", a_mem);
+	end*/
+        
+	// VIVADO
+	reg [width_in-1:0] a_mem[training_cases-1:0][0:783]; //flipping only occurs in the 784 dimension
+	reg y_mem[training_cases-1:0][0:9]; //flipping only occurs in the 10 dimension
+	initial begin
+		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s136_frc9_int2.dat", memL1);
+		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s40_frc9_int2.dat", memL2);
+		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout.dat", y_mem);
+		$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input.dat", a_mem);
 	end
 
 	genvar gv_i;	
@@ -215,7 +238,7 @@ module MNIST_tb #(
 	// Performance evaluation and display
 	////////////////////////////////////////////////////////////////////////////////////
 	initial begin
-		log_file = $fopen("log.dat"); //Stores a lot of info
+		log_file = $fopen("results_log.dat"); //Stores a lot of info
 		for(q=0;q<=checklast;q=q+1) crt[q]=0; //initialize all 1000 places to 0
 	end
 

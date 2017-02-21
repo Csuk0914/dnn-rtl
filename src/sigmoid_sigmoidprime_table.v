@@ -2,6 +2,8 @@
 // TO BE REPLACED: parameter values, and the table portion inside the case statements
 // NOTHING ELSE NEEDS TO BE REPLACED APART FROM ABOVE
 
+`timescale 1ns/100ps
+
 module sigmoid_t #(
 	parameter width = 12,
 	parameter int_bits = 2,
