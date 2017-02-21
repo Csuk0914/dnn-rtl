@@ -294,7 +294,7 @@ module max_finder_set #(
 endmodule
 
 
-// This is a parallel register, i.e. width 1-bit DFFs
+// This is a parallel register with asynchronous reset, i.e. width 1-bit DFFs
 module DFF #(
 	parameter width = 16 //No. of DFFs in parallel
 )(
@@ -303,7 +303,7 @@ module DFF #(
 	input [width-1:0] d,
 	output reg [width-1:0] q
 );
-	always @(posedge clk, reset) begin
+	always @(posedge clk, posedge reset) begin
 		if (reset)
 			q <= {width{1'b0}};
 		else
