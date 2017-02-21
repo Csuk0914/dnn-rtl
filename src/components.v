@@ -222,7 +222,7 @@ module mux_set #(
 endmodule
 
 
-// Compare 2 width-bit values and output the greater
+// Compare 2 width-bit values and output the greater, as well as its position (see pos)
 module max_finder #(
 	parameter width = 16
 )(
@@ -235,7 +235,8 @@ module max_finder #(
 	assign pos = (a>=b)? 1'b0 : 1'b1;
 endmodule
 
-// Given N width-bit values (packed as a N*width-bit 1D array, find the max width-bit value out of the N)
+// Given N width-bit values (packed as a N*width-bit 1D array), find the max width-bit value out of the N
+// Also find its position, e.g. is pos=0110, then the 6th value out of a possible 16 is the max
 module max_finder_set #(
 	parameter width = 16,
 	parameter N = 16,
@@ -247,7 +248,7 @@ module max_finder_set #(
 );
 	wire [width*(N-1)-1:0] intermeds; //intermediate max2to1 outputs
 	wire [$clog2(N)*(N-1)-1:0] interpos; //intermediate max pos
-	wire [N/2-2:0] singlepos; //intermediate output of 2to1 max_finder
+	wire [N/2-2:0] singlepos; //intermediate pos output of 2to1 max_finder
 	genvar gv_i, gv_j;
 	generate
 		if (N==1) begin //trivial case

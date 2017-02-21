@@ -25,7 +25,7 @@ module DNN #(
 	//parameter eta = `eta, //eta is NOT a parameter any more. See input section for details
 	//parameter lamda = 1, //L2 regularization
 	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
-	parameter maxactL_pos_width = (z[L-2]/fi[L-2]==1) ? 1 : $clog2(z[L-2]/fi[L-2]),
+	parameter maxactL_pos_width = (z[L-2]/fi[L-2]==1) ? 1 : $clog2(z[L-2]/fi[L-2]), //position of maximum neuron every clk cycle
 	parameter cpc =  n[0] * fo[0] / z[0] + 2	//clocks per cycle block = Weights/parallelism. 2 extra needed because FF is 3 stage operation
 	//Same cpc in different junctions is fine, cpc has to be a (power of 2) + 2
 	// [todo future] ADD support for different cpc
@@ -119,15 +119,26 @@ module DNN #(
 		.deltaL(dL), .yL(y_out) //output data flow. dL goes to previous hidden layer, yL goes outside
 	);
 
-	wire [width-1:0] maxactL, final_maxactL;
-	reg [width-1:0] stored_maxactL;
+	// Max act logic
+	wire [width-1:0] maxactL, //local max act every cycle
+						  final_maxactL; //global max act every cpc cycles
+	reg [width-1:0] stored_maxactL; //current global max act in the middle of a block cycle
 	wire [maxactL_pos_width-1:0] maxactL_pos;
 	reg [$clog2(n[L-1])-1:0] stored_maxactL_pos;
-	wire maxactL_singlepos;
+	wire maxactL_singlepos; //compares local with global
+
+	// max_finder_set gets local max act and its pos from z[L-2]/fi[L-2] activations after every clk cycle
+	// max_finder compares this max act with the stored global max act from previous cycles and outputs final max act after cpc cycles, i.e. max act from n[L-2] output neurons
 	max_finder_set #(.width(width),.N(z[L-2]/fi[L-2])) mfs_actL (.in(actL),.out(maxactL),.pos(maxactL_pos));
 	max_finder #(.width(width)) mf_actstored (.a(maxactL),.b(stored_maxactL),.out(final_maxactL),.pos(maxactL_singlepos));
-	always @(posedge clk) begin
-		if (cycle_index>1) begin //Get chunks of y_out and actL from z/fi output neurons for cpc-2 clocks => Total z/fi*(n*fi/z) = n = No. of output neurons
+	always @(posedge clk, posedge cycle_clk) begin
+		if (cycle_clk) begin //Assign 1 output to the max position and then reset variables
+			a_out_alln = {n[L-1]{1'b0}};
+			a_out_alln[stored_maxactL_pos] = 1'b1;
+			stored_maxactL = {1'b1,{(width-1){1'b0}}}; //most negative value possible
+			stored_maxactL_pos = {$clog2(n[L-1]){1'b0}}; //reset to all 0
+		end
+		if (cycle_index>1) begin //1st 2 cycles are garbage
 			stored_maxactL = final_maxactL; //This is the final_maxactL just generated from the new actL values. This line behaves like a DFF
 			/****************** DELETE THIS LINE if z[L-2]/fi[L-2]>1 ************************
 			if (z[L-2]/fi[L-2]>1) begin
@@ -147,13 +158,7 @@ module DNN #(
 				if condition is false, as usual, retain previous value of stored_maxactL_pos */ 
 		end
 	end
-	always @(posedge cycle_clk) begin
-		a_out_alln = {n[L-1]{1'b0}};
-		a_out_alln[stored_maxactL_pos] = 1'b1;
-		stored_maxactL = {1'b1,{(width-1){1'b0}}}; //most negative value possible
-		stored_maxactL_pos = {$clog2(n[L-1]){1'b0}}; //reset to all 0
-	end
-		
+	
 
 //eta shift register
 	shift_reg #( //2nd junction gets updated first - L block cycles after input is fed
@@ -179,3 +184,4 @@ endmodule
 	always @(posedge cycle_clk)
 	if (!reset)
 		cycle = cycle + 1; */
+
