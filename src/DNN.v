@@ -138,7 +138,7 @@ module DNN #(
 			stored_maxactL = {1'b1,{(width-1){1'b0}}}; //most negative value possible
 			stored_maxactL_pos = {$clog2(n[L-1]){1'b0}}; //reset to all 0
 		end
-		if (cycle_index>1) begin //1st 2 cycles are garbage
+		else if (cycle_index>1) begin //1st 2 cycles are garbage
 			stored_maxactL = final_maxactL; //This is the final_maxactL just generated from the new actL values. This line behaves like a DFF
 			/****************** DELETE THIS LINE if z[L-2]/fi[L-2]>1 ************************
 			if (z[L-2]/fi[L-2]>1) begin

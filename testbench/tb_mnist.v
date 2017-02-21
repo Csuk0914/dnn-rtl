@@ -139,24 +139,24 @@ module MNIST_tb #(
 	KEEP 1 OF THE 2 FOLLOWING PORTIONS AND COMMENT OUT THE OTHER ONE */
 	
 	// MODELSIM 
-	reg [width_in-1:0] a_mem[training_cases-1:0][783:0]; //inputs
+	/*reg [width_in-1:0] a_mem[training_cases-1:0][783:0]; //inputs
 	reg y_mem[training_cases-1:0][9:0]; //ideal outputs
 	initial begin
 		$readmemb("./gaussian_list/s136_frc9_int2.dat", memL1);
       $readmemb("./gaussian_list/s40_frc9_int2.dat", memL2);
       $readmemb("train_idealout_spaced.dat", y_mem);
       $readmemh("train_input_spaced.dat", a_mem);
-	end
+	end*/
         
 	// VIVADO
-	/*reg [width_in-1:0] a_mem[training_cases-1:0][0:783]; //flipping only occurs in the 784 dimension
+	reg [width_in-1:0] a_mem[training_cases-1:0][0:783]; //flipping only occurs in the 784 dimension
 	reg y_mem[training_cases-1:0][0:9]; //flipping only occurs in the 10 dimension
 	initial begin
 		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s136_frc9_int2.dat", memL1);
 		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s40_frc9_int2.dat", memL2);
 		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout.dat", y_mem);
 		$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input.dat", a_mem);
-	end*/
+	end
 
 	genvar gv_i;	
 	generate for (gv_i = 0; gv_i<n[0]; gv_i = gv_i + 1)
