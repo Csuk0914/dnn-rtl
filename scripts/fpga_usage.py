@@ -7,11 +7,14 @@ fo = [512,512,512,512,512,1024]
 # ImageNet
 neurons = [65536,8192,1024]
 fo = [1024,128]
+# AlexNet
+neurons = [1728,4096,4096,1000]
+fo = [256,256,250]
 # Small trial
 #neurons = [1024,32,16]
 #fo = [2,2]
-z_j01 = 64 #z of 1st junction
-width = 16 #Bit width
+z_j01 = 108 #z of 1st junction
+width = 12 #Bit width
 ###############################
 
 ##### GETS SET (DON'T SET) ####
