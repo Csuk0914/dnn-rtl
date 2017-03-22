@@ -14,7 +14,6 @@ testbench - Main file is tb_mnist.v. Other files are for baby networks or submod
 src - All source code Verilog files. Hierarchy:
 
 	DNN.v	-	whole network
-
 	layer_block.v	-	Contains processors, memory, state machines and other small logic for each layer
 
 	memory_ctr.v	-	State machine for each layer. It will generate all control signal for memory (address, enable), counter and mux
