@@ -28,6 +28,6 @@ switch_tb=1;
 
 $stop;
 end
-UART_Control U1 (.CLK100MHZ(Clk_tb),.SW0(reset_tb), .SW1(switch_tb), .UART_RXD_OUT(out));
+UART_Control U1 (.CLK100MHZ(Clk_tb),.reset(reset_tb), .start(switch_tb), .TXD(out));
 //UART_Trans s1 (.CLK100MHZ(Clk_tb), .SW0(reset_tb), .SW1(switch_tb),.UART_RXD_OUT(out));
 endmodule

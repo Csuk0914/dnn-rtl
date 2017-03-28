@@ -32,8 +32,7 @@ isSending_tb = 1;
 $stop;
 end
 UART_Control U1 (.CLK100MHZ(Clk_tb),.reset(reset_tb), .start(switch_tb), .TXD(tx1));
-UART_echo U2 (.CLK100MHZ(Clk_tb), .SW0(reset_tb), .SW1(switch_tb), .SW2(isSending_tb),.RXD(tx1), .TXD(tx2)
-);
-//UART_Receiver U2 (.CLK100MHZ(Clk_tb), .reset(reset_tb), .isRx(switch_tb), .RXD(out), .data(data), .done(done));
+//UART_echo U2 (.CLK100MHZ(Clk_tb), .SW0(reset_tb), .SW1(switch_tb), .SW2(isSending_tb),.RXD(tx1), .TXD(tx2));
+UART_RX U2 (.CLK100MHZ(Clk_tb), .RESET(reset_tb), .RXEN(switch_tb), .RXD(tx1), .DATA(data), .DONE(done));
 //UART_Trans s1 (.CLK100MHZ(Clk_tb), .SW0(reset_tb), .SW1(switch_tb),.UART_RXD_OUT(out));
 endmodule

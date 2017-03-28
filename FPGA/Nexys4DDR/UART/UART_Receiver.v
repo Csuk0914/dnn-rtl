@@ -1,104 +1,119 @@
-module UART_Receiver #(
-	parameter DATA_WIDTH = 8
+module UART_RX #(
+	parameter DATA_WIDTH = 8,
+	parameter baud_count = 868
 )(
 	input wire CLK100MHZ,
-	input wire reset, 
-	input wire isRx, 
+	input wire RESET, 
+	input wire RXEN, 
 	input wire RXD,
-	output wire [DATA_WIDTH-1:0] data,
-	output reg done
+	output wire [DATA_WIDTH-1:0] DATA,
+	output wire DONE
 );
 
-wire en;
 
+reg rDONE;
+reg [DATA_WIDTH-1:0] rDATA;
+reg [9:0] counter;
+reg [5:0] state;
+reg [3:0] i;
 
-reg [4:0] state;
-reg pulse_enable;
-reg [7:0] counter;
-reg [4:0] i;
-reg [DATA_WIDTH-1:0] D,Dout;
-assign data = Dout;
+assign DATA = rDATA;
+assign DONE = rDONE;
 
 localparam
-	Qini 	= 5'b00001,
-	Qstart	= 5'b00010,
-	Qrx		= 5'b00100,
-	Qstop	= 5'b01000,
-	Qdone 	= 5'b10000;
-	
-pulse_generator Mp(.CLK100MHZ(CLK100MHZ), .reset(reset), .enable(pulse_enable), .pulse(en));
+	RX_IDLE 		= 6'b000001,
+	RX_START		= 6'b000010,
+	RX_RECEIVING	= 6'b000100,
+	RX_STOP			= 6'b001000,
+	RX_DONE			= 6'b010000,
+	RX_END			= 6'b100000;
 
-
-always @ (posedge CLK100MHZ, posedge reset)
+always @ (posedge CLK100MHZ, posedge RESET)
 begin
-	if (reset)
-		begin
-			state <= Qini;
-			done <= 0;
-			pulse_enable <= 0;
-			D <= 0;
-		end
-	else if (isRx)
-		case (state)
-			Qini:
-			begin
-				if (RXD == 1'b0) //Detected start bit.
-					begin
-						state <= Qstart;
-						pulse_enable = 1;
-						i <= 0;
-						counter <= 0;
-						D <= 0;
-
-					end
-			end
-			
-			Qstart:
-			begin
-				if (en)
-					state <= Qrx;
-			end
-			
-			Qrx:
-			begin
-				if (en)
-					begin
-						if (i == DATA_WIDTH-1)
-							state <= Qstop;
-						else 
-							begin
-								i <= i + 1;
-								counter <= 0;
-							end
-					end
-				else 
-					begin //Record the bit at 1/4 of the sampling period
-						counter <= counter + 1;
-						if (counter == 217)
-							begin
-								D[i] <= RXD;
-							end
-			
-					end
-			end
+	if (RESET)
+	begin
+		state <= RX_IDLE;
 		
-			Qstop:
+		rDONE <= 1'b0;
+		rDATA <= 1'd0;
+		counter <= 1'b0;
+	end
+	
+	else if (RXEN)
+	begin
+		case (state)
+		
+			RX_IDLE:
 			begin
-				if (en)
-					begin
-						state <= Qdone;
-						done <= 1'b1;
-						Dout <= D;
-					end
+				if (RXD == 1'b0)
+				begin
+					state <= RX_START;
+					
+					counter <= counter + 1'b1;
+					i <= 1'b0;
+				end
 			end
 			
-			Qdone:
+			RX_START:
 			begin
-				state<= Qini;
-				done <= 1'b0;
+				if (counter == baud_count - 1'b1)
+				begin
+					state <= RX_RECEIVING;
+					counter <= 1'b0;
+				end
+				else
+					counter <= counter + 1'b1;
 			end
+			
+			
+			RX_RECEIVING:
+			begin
+				if (counter == 216)
+					rDATA[i] <= RXD;
+					
+				if (counter == baud_count - 1)
+				begin
+					if (i == DATA_WIDTH - 1)
+						state <= RX_STOP;
+					else
+						i <= i + 1'b1;
+						
+					counter <= 1'd0;	
+				end
+				else
+					counter <= counter + 1'b1;
+			end
+			
+			RX_STOP:
+			begin
+				if (counter == baud_count - 1'b1)
+				begin
+					counter <= 1'd0;
+					state <= RX_DONE;
+				end
+				else
+					counter <= counter + 1'b1;
+			end
+			
+			RX_DONE:
+			begin
+				state <= RX_END;
+				rDONE <= 1'b1;
+			end
+			
+			RX_END:
+			begin
+				state <= RX_IDLE;
+				rDONE <= 1'b0;
+			end
+	
+		
+		
 		
 		endcase
+	
+	end
+
 end
 
 endmodule
