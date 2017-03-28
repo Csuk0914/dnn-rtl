@@ -1,7 +1,7 @@
 // File name: 	: fifo_reg_array_sc_n_plus_1_bit_pointers.v (sc = single clock)
 // Design       : fifo_reg_array_sc 
 // Author       : Gandhi Puvvada
-// Date			: 10/26/2014
+// Date			: 10/26/2014 
 // Here, we use (n+1) bit pointers.
 // Hence signals almost_empty and almost_full are not needed.
 
