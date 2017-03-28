@@ -1,3 +1,6 @@
+//UART TRANSMITTER
+//Data Framing: 1 START BIT + DATA_WIDTH + 1 STOP BIT
+
 `timescale 1ns/100ps
 
 module UART_TX #(
@@ -29,11 +32,13 @@ localparam
 	TX_DONE		= 4'b0100,
 	TX_END		= 4'b1000;
 	
+	
 always @ (posedge CLK100MHZ, posedge RESET)
 begin
 	if (RESET)
 	begin
 		state	<= TX_IDLE;
+		
 		rTXD	<= 1'b1;
 		rDONE	<= 1'b0;
 		dout	<= 10'd0;
@@ -42,52 +47,50 @@ begin
 	else if (TXEN)
 	begin
 		case (state)
-		
-		TX_IDLE:
-		begin
-			state <= TX_SENDING;
 			
-			dout <= {1'b1, DATA, 1'b0};
-			i <= 0;
-			counter	<= 10'b0;
-		end
-		
-		TX_SENDING:
-		begin
-			if (counter == baud_count-1)
+			TX_IDLE:
 			begin
-				if (i == DATA_WIDTH+1) 
-					state <= TX_DONE;
-				else
-					i <= i + 1'b1;
+				state <= TX_SENDING;
+				
+				dout <= {1'b1, DATA, 1'b0};
+				i <= 0;
+				counter	<= 10'b0;
+			end
+			
+			TX_SENDING: //Sending the entire data packet, including start bit and stop bit.
+			begin
+				if (counter == baud_count-1)
+				begin
+					counter <= 10'b0;
 					
-				counter <= 10'b0;
+					if (i == DATA_WIDTH+1) 
+						state <= TX_DONE;
+					else
+						i <= i + 1'b1;					
+				end
+				else
+				begin
+					rTXD <= dout[i];
+					counter <= counter + 1;
+				end
 			end
-			else
+			
+			TX_DONE:
 			begin
-				rTXD <= dout[i];
-				counter <= counter + 1;
+				state <= TX_END;
+				rDONE <= 1'b1;
+			
 			end
-		end
-		
-		TX_DONE:
-		begin
-			state <= TX_END;
-			rDONE <= 1'b1;
-		
-		end
-		
-		TX_END:
-		begin
-			state <= TX_IDLE;
-			rDONE <= 1'b0;
-		end
-		
+			
+			TX_END:
+			begin
+				state <= TX_IDLE;
+				rDONE <= 1'b0;
+			end
+			
 		endcase
 	
-	
 	end
-
 
 end
 endmodule

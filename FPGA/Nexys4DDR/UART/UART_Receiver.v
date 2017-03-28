@@ -1,3 +1,8 @@
+//UART Receiver
+//Data Framing: 1 START BIT + DATA_WIDTH + 1 STOP BIT
+
+`timescale 1ns/100ps
+
 module UART_RX #(
 	parameter DATA_WIDTH = 8,
 	parameter baud_count = 868
@@ -43,7 +48,7 @@ begin
 	begin
 		case (state)
 		
-			RX_IDLE:
+			RX_IDLE: //Looking for active low start bit
 			begin
 				if (RXD == 1'b0)
 				begin
@@ -59,6 +64,7 @@ begin
 				if (counter == baud_count - 1'b1)
 				begin
 					state <= RX_RECEIVING;
+					
 					counter <= 1'b0;
 				end
 				else
@@ -66,9 +72,9 @@ begin
 			end
 			
 			
-			RX_RECEIVING:
+			RX_RECEIVING: //Receiving all data bits.
 			begin
-				if (counter == 216)
+				if (counter == 216) //Record data at 1/4 of the sampling period. 
 					rDATA[i] <= RXD;
 					
 				if (counter == baud_count - 1)
@@ -106,9 +112,6 @@ begin
 				state <= RX_IDLE;
 				rDONE <= 1'b0;
 			end
-	
-		
-		
 		
 		endcase
 	

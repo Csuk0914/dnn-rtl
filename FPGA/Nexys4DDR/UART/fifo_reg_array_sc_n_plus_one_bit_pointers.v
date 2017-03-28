@@ -8,10 +8,12 @@
 
 //`timescale 1 ns/100 ps
 
-module fifo_reg_array_sc (clk, reset, data_in, wen, ren, data_out, depth, empty, full);
+module fifo_reg_array_sc #(
+	parameter DATA_WIDTH = 8,
+	parameter ADDR_WIDTH = 4
+) (clk, reset, data_in, wen, ren, data_out, depth, empty, full);
 
-parameter DATA_WIDTH = 8;
-parameter ADDR_WIDTH = 4;
+
 
 input clk, reset;
 input wen, ren; // the read or write request for CPU
