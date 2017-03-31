@@ -1,10 +1,6 @@
 # dnn-RTL
 RTL and FPGA implementaion of USC's DNN system - Sourya, Yinan, Chiye, Mahdi
 
-bin - Top level binary files (Mahdi)
-
-data - Datasets
-
 testbench - Main file is tb_mnist.v. Other files are for baby networks or submodules.
 
 src - All source code Verilog files. Hierarchy:
@@ -19,6 +15,8 @@ src - All source code Verilog files. Hierarchy:
 	interleaver_drp.v	-	DRP interleaver
 	sigmoid_sigmoidprime_table.v	-	Look-up table for sigmoid and sigmoid prime function
 
+data - Datasets
+
 gaussian_list - Weight intialization
 
 scripts - Python codes to generate LUTs, gaussian lists, calculate FPGA usage etc
@@ -27,21 +25,32 @@ misc_stuff - Some images
 
 FPGA - All FPGA specific files like UART, board files, xdc, etc
 
+bin - Top level binary files (Mahdi)
 
 
-NOTES:			
 
-Manual override required when bit widths are changed:
+WHENEVER SIMULATING:			
+
+If using Vivado, please UNTICK xsim.simulate.log_all_signals in Simulation tab in Simulation Settings in Left Pane
+
+If bit widths are changed:
 	
 	Sigmoid and sigmoid prime files - Refer to comments at top of /src/sigmoid_sigmoidprime_table.v and /scripts/actlut_generator.py
 	Gaussian lists - Regenerate using /src/glorotnormal_init_generator.py and put new files in local Verilog folder on Windows
 	tb_mnist - Change parameters at top. Make sure correct simulator (Modelsim or Vivado) portion is uncommented in Data import block. Change gaussian file names there.
 	
-Manual overrides required when network parameters are changed:
+If network parameters are changed:
 	
 	DNN.v - Delete this following line wherever it comes, when applicable: /****************** DELETE THIS LINE if z[L-2]/fi[L-2]>1 ************************
 	Interleaver file, if interleaver parameters are changed. Also comment out higher m else if statements inside r_dither and w_dither in case of any issue while running smaller DNNs
 
+
+SIMULATION FILES: (Sourya's machine only)
+
+	Modelsim: VBox Windows Desktop -> Verilog/DNN
+	Vivado: VBox Windows Desktop -> Vivado/projectname/projectname/projectname.sim/sim_1/behav
+	Periodically delete VBox Windows Desktop -> Vivado/projectname/projectname.cache to save space
+	
 
 CONSTRAINTS:
 	
