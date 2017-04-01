@@ -12,16 +12,16 @@
 // [todo] NEED to include ifdef for conditional compile of hidden layers. Is this one-hot??
 
 module DNN #(
-	parameter width = 16, //Bit width
+	parameter width = 10, //Bit width
 	parameter width_in = 8, //input data width, i.e. no. of bits each input neuron can take in
-	parameter int_bits = 5, //no. of integer bits
-	parameter frac_bits = 10, //no. of fractional part bits
+	parameter int_bits = 2, //no. of integer bits
+	parameter frac_bits = width-int_bits-1, //no. of fractional part bits
 	parameter L = 3, //Total no. of layers (including input and output)
 	// Parameter arrays need to be [31:0] for compilation
-	parameter [31:0] fo [0:L-2] = '{2, 2}, //Fanout of all layers except for output
-	parameter [31:0] fi [0:L-2]  = '{4, 4}, //Fanin of all layers except for input
-	parameter [31:0] z [0:L-2]  = '{8, 4}, //Degree of parallelism of all junctions. No. of junctions = L-1
-	parameter [31:0] n [0:L-1] = '{16, 8, 4}, //No. of neurons in every layer
+	parameter [31:0] fo [0:L-2] = '{8, 8}, //Fanout of all layers except for output
+	parameter [31:0] fi [0:L-2]  = '{128, 32}, //Fanin of all layers except for input
+	parameter [31:0] z [0:L-2]  = '{512, 32}, //Degree of parallelism of all junctions. No. of junctions = L-1
+	parameter [31:0] n [0:L-1] = '{1024, 64, 16}, //No. of neurons in every layer
 	//parameter eta = `eta, //eta is NOT a parameter any more. See input section for details
 	//parameter lamda = 1, //L2 regularization
 	parameter cost_type = 1, //0 for quadcost, 1 for xentcost

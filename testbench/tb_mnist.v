@@ -11,12 +11,12 @@ module MNIST_tb #(
 	parameter [31:0]fi[0:L-2]  = '{128, 32},
 	parameter [31:0]z[0:L-2]  = '{512, 32},
 	parameter [31:0]n[0:L-1] = '{1024, 64, 16},
-	parameter Eta = 0.0625,
+	parameter Eta = 2**-4,
 	//parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
 	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
 	// Testbench parameters:
-	parameter training_cases = 10000, //number of cases to consider out of entire MNIST. Should be <= 50000
-	parameter total_training_cases = 10*training_cases, //total number of training cases over all epochs
+	parameter training_cases = 100, //number of cases to consider out of entire MNIST. Should be <= 50000
+	parameter total_training_cases = 1*training_cases, //total number of training cases over all epochs
 	//parameter test_cases = 8,
 	parameter checklast = 1000, //how many previous inputs to compute accuracy from
 	parameter clock_period = 10,
@@ -139,24 +139,24 @@ module MNIST_tb #(
 	KEEP 1 OF THE 2 FOLLOWING PORTIONS AND COMMENT OUT THE OTHER ONE */
 	
 	// MODELSIM 
-	reg [width_in-1:0] a_mem[training_cases-1:0][783:0]; //inputs
+	/*reg [width_in-1:0] a_mem[training_cases-1:0][783:0]; //inputs
 	reg y_mem[training_cases-1:0][9:0]; //ideal outputs
 	initial begin
 		$readmemb("./gaussian_list/s136_frc7_int2.dat", memL1);
-      $readmemb("./gaussian_list/s40_frc7_int2.dat", memL2);
-      $readmemb("train_idealout_spaced.dat", y_mem);
-      $readmemh("train_input_spaced.dat", a_mem);
-	end
+        $readmemb("./gaussian_list/s40_frc7_int2.dat", memL2);
+        $readmemb("train_idealout_spaced.dat", y_mem);
+        $readmemh("train_input_spaced.dat", a_mem);
+	end*/
         
 	// VIVADO
-	/*reg [width_in-1:0] a_mem[training_cases-1:0][0:783]; //flipping only occurs in the 784 dimension
+	reg [width_in-1:0] a_mem[training_cases-1:0][0:783]; //flipping only occurs in the 784 dimension
 	reg y_mem[training_cases-1:0][0:9]; //flipping only occurs in the 10 dimension
 	initial begin
 		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s136_frc7_int2.dat", memL1);
 		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s40_frc7_int2.dat", memL2);
 		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout.dat", y_mem);
 		$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input.dat", a_mem);
-	end*/
+	end
 
 
 	genvar gv_i;	
