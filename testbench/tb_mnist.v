@@ -11,11 +11,11 @@ module MNIST_tb #(
 	parameter [31:0]fi[0:L-2]  = '{128, 32},
 	parameter [31:0]z[0:L-2]  = '{512, 32},
 	parameter [31:0]n[0:L-1] = '{1024, 64, 16},
-	parameter Eta = 2**-4,
+	parameter Eta = 0.0625, //DO NOT WRITE THIS AS 2**x, that doesn't work
 	//parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
 	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
 	// Testbench parameters:
-	parameter training_cases = 100, //number of cases to consider out of entire MNIST. Should be <= 50000
+	parameter training_cases = 500, //number of cases to consider out of entire MNIST. Should be <= 50000
 	parameter total_training_cases = 1*training_cases, //total number of training cases over all epochs
 	//parameter test_cases = 8,
 	parameter checklast = 1000, //how many previous inputs to compute accuracy from
@@ -68,7 +68,10 @@ module MNIST_tb #(
 	////////////////////////////////////////////////////////////////////////////////////
 	// Set Clock, Cycle Clock, Reset, eta
 	////////////////////////////////////////////////////////////////////////////////////
-	initial #81 reset = 0;
+	initial begin
+		//#1 reset = 1;	
+		#81 reset = 0;
+	end
 
 	initial begin
 		eta = Eta * (2 ** frac_bits); //convert the Eta to fix point
