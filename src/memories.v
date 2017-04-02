@@ -21,13 +21,14 @@ module memory #(
 			mem[address] = data_in;
 	end
 
-	//[todo] Find how to initialize FPGA mem and delete initial
-	integer i;
+	//Commenting out the following because FPGA synth doesn't support initial
+	//[TODO] find how to initialize FPGA RAMs
+	/*integer i;
 	initial begin
 		for (i = 0; i < depth; i = i + 1)
 			mem[i] = 0;//($random%2)? $random%(2**22):-$random%(2**22);
 		data_out = 0;
-	end
+	end*/
 endmodule
 
 //set of identical memory modules, each clocked by same clk. 1 whole set like this is a single collection
@@ -153,8 +154,9 @@ module dual_port_memory #(
 		data_outB = mem[addressB];
 	end
 
-	//[todo] Find how to initialize FPGA mem and delete initial
-	integer i;
+	//Commenting out the following because FPGA synth doesn't support initial
+	//[TODO] find how to initialize FPGA RAMs
+	/*integer i;
 	initial begin
 		#0.1; //MNIST_tb.memL1 and L2 are read at t=0. So wait a small while before reading from them
 		// for weight memory, initialize it to glorot normal distribution with mu = 0, sigma = sqrt[2/(fi+fo)]
@@ -175,7 +177,7 @@ module dual_port_memory #(
 		end
 		data_outA = mem[addressA];
 		data_outB = mem[addressB];
-	end
+	end*/
 endmodule
 
 //set of identical dual port memory modules, each clocked by same clk. 1 whole set like this is a single collection
