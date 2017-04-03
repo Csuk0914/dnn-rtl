@@ -1,21 +1,23 @@
+//Small testbench to be used for FPGA synthesis
+//Uses same network config as tb_64x16x4, but everything else is latest like tb_mnist
 `timescale 1ns/100ps
 
-module tb_mnist #(
+module tb_fpgasynth #(
 	// DNN parameters to be passed
 	parameter width = 10,
 	parameter width_in = 8,
 	parameter int_bits = 2,
 	parameter frac_bits = width-int_bits-1,
 	parameter L = 3,
-	parameter [31:0]fo[0:L-2] = '{8, 8},
-	parameter [31:0]fi[0:L-2]  = '{128, 32},
-	parameter [31:0]z[0:L-2]  = '{512, 32},
-	parameter [31:0]n[0:L-1] = '{1024, 64, 16},
-	parameter Eta = 0.0625, //DO NOT WRITE THIS AS 2**x, that doesn't work
+	parameter [31:0]fo[0:L-2] = '{2, 2},
+	parameter [31:0]fi[0:L-2]  = '{8, 8},
+	parameter [31:0]z[0:L-2]  = '{32, 8},
+	parameter [31:0]n[0:L-1] = '{64, 16, 4},
+	parameter Eta = 0.125, //DO NOT WRITE THIS AS 2**x, that doesn't work
 	//parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
 	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
 	// Testbench parameters:
-	parameter training_cases = 500, //number of cases to consider out of entire MNIST. Should be <= 50000
+	parameter training_cases = 2000, //number of cases to consider out of entire MNIST. Should be <= 50000
 	parameter total_training_cases = 1*training_cases, //total number of training cases over all epochs
 	//parameter test_cases = 8,
 	parameter checklast = 1000, //how many previous inputs to compute accuracy from
@@ -101,7 +103,7 @@ module tb_mnist #(
 	wire [width_in*n[0]-1:0] a; //Complete 8b act input for 1 training case, i.e. No. of input neurons x 8 x 1
 
 	assign sel_network = cycle_index[$clog2(cpc-2)-1:0]-2;
-	/* cycle_index goes from 0-17, so its 4 LSB go from 0-15 then 0-1
+	/* cycle_index goes from 0 to cpc-1, so its 4 LSB go from 0 to cpc-3 then 0 to 1
 	* But nothing happens in the last 2 cycles since pipeline delay is 2
 	* So take values of cycle_index from 0-15 and subtract 2 to make its 4 LSB go from 14-15, then 0-13
 	* Note that the jumbled order isn't important as long as all inputs from 0-15 are fed */
@@ -129,7 +131,7 @@ module tb_mnist #(
 	////////////////////////////////////////////////////////////////////////////////////
 	
 	reg [width-1:0] memJ1 [1999:0]; //1st junction weight memory
-    reg [width-1:0] memJ2 [1999:0]; //2nd junction weight memory
+	reg [width-1:0] memJ2 [1999:0]; //2nd junction weight memory
 	
 	/* SIMULATOR NOTES:
 	*	Modelsim can read a input file with spaces and assign it in natural counting order
@@ -143,8 +145,8 @@ module tb_mnist #(
 	KEEP 1 OF THE 2 FOLLOWING PORTIONS AND COMMENT OUT THE OTHER ONE */
 	
 	// MODELSIM 
-	/*reg [width_in-1:0] a_mem[training_cases-1:0][783:0]; //inputs
-	reg y_mem[training_cases-1:0][9:0]; //ideal outputs
+	/*reg [width_in-1:0] a_mem[training_cases-1:0][63:0]; //inputs
+	reg y_mem[training_cases-1:0][3:0]; //ideal outputs
 	initial begin
 		$readmemb("./gaussian_list/s136_frc7_int2.dat", memJ1);
         $readmemb("./gaussian_list/s40_frc7_int2.dat", memJ2);
@@ -153,26 +155,26 @@ module tb_mnist #(
 	end*/
         
 	// VIVADO
-	reg [width_in-1:0] a_mem[training_cases-1:0][0:783]; //flipping only occurs in the 784 dimension
-	reg y_mem[training_cases-1:0][0:9]; //flipping only occurs in the 10 dimension
+	reg [width_in-1:0] a_mem[training_cases-1:0][0:63]; //flipping only occurs in the final bracket dimension
+	reg y_mem[training_cases-1:0][0:3]; //flipping only occurs in the final bracket dimension
 	initial begin
-		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s136_frc7_int2.dat", memJ1);
-		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s40_frc7_int2.dat", memJ2);
-		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout.dat", y_mem);
-		$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input.dat", a_mem);
+		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s10_frc7_int2.dat", memJ1);
+		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s10_frc7_int2.dat", memJ2);
+		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout_4.dat", y_mem);
+		$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input_64.dat", a_mem);
 	end
 
 
 	genvar gv_i;	
 	generate for (gv_i = 0; gv_i<n[0]; gv_i = gv_i + 1)
 	begin: pr
-		assign a[width_in*(gv_i+1)-1:width_in*gv_i] = (gv_i<784)? a_mem[sel_tc][gv_i]:0;
+		assign a[width_in*(gv_i+1)-1:width_in*gv_i] = (gv_i<64)? a_mem[sel_tc][gv_i]:0;
 	end
 	endgenerate
 
 	generate for (gv_i = 0; gv_i<n[L-1]; gv_i = gv_i + 1)
 	begin: pp
-		assign y[gv_i] = (gv_i<10)? y_mem[sel_tc][gv_i]:0;
+		assign y[gv_i] = (gv_i<4)? y_mem[sel_tc][gv_i]:0;
 	end
 	endgenerate
 	////////////////////////////////////////////////////////////////////////////////////

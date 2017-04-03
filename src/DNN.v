@@ -17,18 +17,28 @@ module DNN #(
 	parameter int_bits = 2, //no. of integer bits
 	parameter frac_bits = width-int_bits-1, //no. of fractional part bits
 	parameter L = 3, //Total no. of layers (including input and output)
+	
 	// Parameter arrays need to be [31:0] for compilation
-	parameter [31:0] fo [0:L-2] = '{8, 8}, //Fanout of all layers except for output
+	
+	// FOR MNIST:
+	/*parameter [31:0] fo [0:L-2] = '{8, 8}, //Fanout of all layers except for output
 	parameter [31:0] fi [0:L-2]  = '{128, 32}, //Fanin of all layers except for input
 	parameter [31:0] z [0:L-2]  = '{512, 32}, //Degree of parallelism of all junctions. No. of junctions = L-1
-	parameter [31:0] n [0:L-1] = '{1024, 64, 16}, //No. of neurons in every layer
+	parameter [31:0] n [0:L-1] = '{1024, 64, 16}, //No. of neurons in every layer */
+	
+	// FOR SMALL TEST:
+	parameter [31:0]fo[0:L-2] = '{2, 2},
+	parameter [31:0]fi[0:L-2]  = '{8, 8},
+	parameter [31:0]z[0:L-2]  = '{32, 8},
+	parameter [31:0]n[0:L-1] = '{64, 16, 4},
+	
 	//parameter eta = `eta, //eta is NOT a parameter any more. See input section for details
 	//parameter lamda = 1, //L2 regularization
 	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
 	parameter maxactL_pos_width = (z[L-2]/fi[L-2]==1) ? 1 : $clog2(z[L-2]/fi[L-2]), //position of maximum neuron every clk cycle
 	parameter cpc =  n[0] * fo[0] / z[0] + 2	//clocks per cycle block = Weights/parallelism. 2 extra needed because FF is 3 stage operation
 	//Same cpc in different junctions is fine, cpc has to be a (power of 2) + 2
-	// [todo future] ADD support for different cpc
+	// [TODO] ADD support for different cpc
 )(
 	input [width_in*z[0]/fo[0]-1:0] a_in, //Load activations from outside. z[0] weights processed together in first junction => z[0]/fo[0] activations together
 	input [z[L-2]/fi[L-2]-1:0] y_in, //Load ideal outputs from outside. z[L-2] weights processed together in last junction => z[L-2]/fi[L-2] ideal outputs together, each is 1b 
