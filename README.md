@@ -29,20 +29,37 @@ bin - Top level binary files (Mahdi)
 
 
 
-WHENEVER SIMULATING:			
+WHENEVER SIMULATING:
 
-If using Vivado, please UNTICK xsim.simulate.log_all_signals in Simulation tab in Simulation Settings in Left Pane
+If simulator is changed:
+
+	testbench - Make sure correct simulator (Modelsim or Vivado) portion is uncommented in Data import block.
+	If using Vivado, please UNTICK xsim.simulate.log_all_signals in Simulation tab in Simulation Settings in Left Pane
 
 If bit widths are changed:
 	
 	Sigmoid and sigmoid prime files - Refer to comments at top of /src/sigmoid_sigmoidprime_table.v and /scripts/actlut_generator.py
 	Gaussian lists - Regenerate using /src/glorotnormal_init_generator.py and put new files in local Verilog folder on Windows
-	tb_mnist - Change parameters at top. Make sure correct simulator (Modelsim or Vivado) portion is uncommented in Data import block. Change gaussian file names there.
-	
+	tb_mnist - Change parameters at top. Change gaussian file names there.
+
 If network parameters are changed:
 	
+	New datasets may need to be generated:
+		Use scripts/create_data to get training input and output files in Vivado format.
+		The file is not completely parameterized - refer to comments on top
+		(Additional processing needs to be added for Modelsim format)
+	Gaussian lists have to be regenerated for new fi, fo (see above sec for details)
+	Add new datasets and Gaussian lists to Verilog folder on Windows desktop
 	DNN.v - Delete this following line wherever it comes, when applicable: /****************** DELETE THIS LINE if z[L-2]/fi[L-2]>1 ************************
-	Interleaver file, if interleaver parameters are changed. Also comment out higher m else if statements inside r_dither and w_dither in case of any issue while running smaller DNNs
+	memories.v - Search for tb_ (match case) in memories.v and change it to the testbench module name being used, like tb_mnist
+	interleaver_array.v - Define all sweepstart cases for different p/z and fo*z
+	If interleaver_drp is used, comment out higher m else if statements inside r_dither and w_dither in case of any issue while running smaller DNNs
+	Testbench: (Use tb_mnist as reference)
+		Best is to create a new testbench for each dataset
+		Change parameters at top
+		In the Modelsim and Vivado portions in data import, change 784,783,10,9 to nin,nin-1,nout,nout-1 (numbers of input and output neurons)
+		Change Gaussian file names
+	If bit widths and simulator are also changed, see above sections
 
 
 SIMULATION FILES: (Sourya's machine only)
@@ -50,7 +67,7 @@ SIMULATION FILES: (Sourya's machine only)
 	Modelsim: VBox Windows Desktop -> Verilog/DNN
 	Vivado: VBox Windows Desktop -> Vivado/projectname/projectname/projectname.sim/sim_1/behav
 	Periodically delete VBox Windows Desktop -> Vivado/projectname/projectname.cache to save space
-	
+
 
 CONSTRAINTS:
 	

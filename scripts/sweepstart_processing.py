@@ -11,7 +11,8 @@
 ##4f3adcf0
 
 def bin2hex(b):
-    ''' b should be a 4-character string of 0s and 1s'''
+    ''' b should be 4-characters worth of 0s and 1s'''
+    if type(b)!=str: b = str(b)
     if b=='0000': return '0'
     elif b=='0001': return '1'
     elif b=='0010': return '2'
