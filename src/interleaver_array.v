@@ -21,7 +21,7 @@ module interleaver_set #(
 	output [$clog2(p)*z-1:0] memory_index_package //This has all actmem addresses [Eg: Here this has z=8 5b values indexing the 8 neurons to be accessed out of 32 lefthand neurons]
 );
     
-	wire [$clog2(p*fo)-1:0] wt [0:z-1]; //Index of output side weight being read
+	wire [$clog2(p*fo)-1:0] wt [0:z-1]; //INDEX of output side weight being read, NOT the actual weight
 	//z weights are read in each running of this module, and each has log(p*fo)-bit index since there are (p*fo) weights in total
 	wire [$clog2(p/z)-1:0] t [0:p-1]; //t is same as earlier capital S, i.e. the complete pattern for all p neurons in 1 sweep
 	wire [$clog2(p)-1:0] memory_index [0:z-1];
@@ -79,7 +79,7 @@ module interleaver_set #(
 
 	generate //actual interleaver
 		for (gv_i = 0; gv_i<z; gv_i = gv_i + 1) begin
-			assign wt[gv_i] = cycle_index*z + gv_i; //Get weight number
+			assign wt[gv_i] = cycle_index*z + gv_i; //Get weight index
 			assign memory_index[gv_i] = t[wt[gv_i][$clog2(p)-1:0]]*z + wt[gv_i][$clog2(z)-1:0]; /*Convert weight number to interleaved ACTIVATION number, i.e. neuron number
 			Note that the final expression on copy is a weight interleaver:  pi[i] = (t[i%p]*z + (i%z))*fo + (i/p)
 			Here we delete the last 2 terms to get act[i] = t[i%p]*z + (i%z), where i = wt[gv_i] */ 

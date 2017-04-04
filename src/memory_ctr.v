@@ -69,6 +69,7 @@ module output_layer_state_machine #( //This is a state machine, so it controls l
 	wire [z-1:0] we[1:0];
 	wire [z*$clog2(p/z)-1:0] addr[1:0];
 	wire [z*width-1:0] data_in_mem[1:0];
+	
 	genvar gv_i, gv_j;
 	generate for (gv_i = 0; gv_i<2; gv_i = gv_i + 1)
 	begin: package_collection

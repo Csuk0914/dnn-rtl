@@ -9,19 +9,20 @@ module multiplier #(
 	parameter width = 16,
 	parameter int_bits = 5 //No. of bits in integer portion
 )(
-	input [width-1:0] a, //1,5,10
-	input [width-1:0] b, //1,5,10
-	output [width-1:0] z //1,5,10
+	input signed [width-1:0] a, //1,5,10
+	input signed [width-1:0] b, //1,5,10
+	output signed [width-1:0] z //1,5,10
 );
 	
-	wire [2*width-2:0] z_raw; //1,10,20. Overall 1 bit less because sign bit doesn't get replicated
-	assign z_raw = (a[width-2:0] - a[width-1] * 2**(width-1)) * (b[width-2:0] - b[width-1] * 2**(width-1)); //Subtraction converts signed representation to actual number
-	assign z = (z_raw[2*width-2]==0 && z_raw[2*width-3:2*width-int_bits-2]!=0) ? {1'b0, {(width-1) {1'b1}}} : 
-		(z_raw[2*width-2]==1 && z_raw[2*width-3:2*width-int_bits-2]!={(int_bits) {1'b1}})? {1'b1, {(width-1){1'b0}}} : 
-		{z_raw[2*width-2],z_raw[2*width-2-int_bits-1:width-int_bits-1]} + z_raw[width-int_bits-2]; //round to the nearest
-	/* To understand this, use the fact that MSB of z_raw = 2*width-2 and int_bits from MSB are discarded because multiplier is only used for w*a and w*d.
-	   Both a and d are <1, so we only need int_bits LSB [Eg: bits 24-20] of the integer part, since int_bits MSB [Eg: bits 29-24] of integer part are always 00000 (pos) or 11111 (neg)
-	   We also take MSB = sign and frac_bits MSB of frac part [Eg: Bits 19-10]. We discard frac_bits LSB [Eg: Bits 9-0]. Note that frac_bits = width-int_bits-1 */
+	wire signed [2*width-1:0] z_raw; //1,10,21
+	//assign z_raw = (a[width-2:0] - a[width-1] * 2**(width-1)) * (b[width-2:0] - b[width-1] * 2**(width-1)); //Subtraction converts signed representation to actual number
+	assign z_raw = a*b;
+	assign z = (z_raw[2*width-1]==0 && z_raw[2*width-2:2*width-int_bits-2]!=0) ? {1'b0, {(width-1) {1'b1}}} : //positive overflow => set to max pos value
+		(z_raw[2*width-1]==1 && z_raw[2*width-2:2*width-int_bits-2]!={(int_bits+1) {1'b1}})? {1'b1, {(width-1){1'b0}}} : //negative overflow => set to max neg value
+		{z_raw[2*width-1],z_raw[2*width-3-int_bits:width-int_bits-1]} + z_raw[width-int_bits-2]; //normal case. The + is used for rounding
+	/* To understand this, use the fact that MSB of z_raw = 2*width-1 and int_bits+1 from MSB are discarded because multiplier is only used for w*a and w*d.
+	   Both a and d are <1, so we only need int_bits LSB [Eg: bits 24-20] of the integer part, since int_bits+1 MSB [Eg: bits 30-25] of integer part are always 000000 (pos) or 111111 (neg)
+	   We also take MSB = sign and frac_bits MSB of frac part [Eg: Bits 19-10]. We discard frac_bits LSB [Eg: Bits 9-0] after using bit[9] to round */
 endmodule
 
 
@@ -36,7 +37,7 @@ module multiplier_set #(
 	output [width*z-1:0] z_set
 );
 
-	wire [width-1:0] a[z-1:0], b[z-1:0], out[z-1:0];
+	wire signed [width-1:0] a[z-1:0], b[z-1:0], out[z-1:0];
 
 	genvar gv_i;
 	
@@ -60,12 +61,12 @@ endmodule
 module adder #(
 	parameter width = 16
 )(
-	input [width-1:0] a,
-	input [width-1:0] b,
-	output [width-1:0] z
+	input signed [width-1:0] a,
+	input signed [width-1:0] b,
+	output signed [width-1:0] z
 );
-	wire [width-1:0] z_raw;
-	assign z_raw = a+b; //(a[14:0] - a[15] * 2 ** 15) + (b[14:0] - b[15] * 2 ** 15);
+	wire signed [width-1:0] z_raw;
+	assign z_raw = a+b;
 	assign z = (a[width-1]==b[width-1] && z_raw[width-1]!=b[width-1]) ? //check for overflow
 					(z_raw[width-1]==1'b0) ? //if overflow yes, then check which side
 					{1'b1,{(width-1){1'b0}}} : {1'b0,{(width-1){1'b1}}} //most negative or most positive value, depending on z_raw MSB
@@ -90,7 +91,7 @@ module costterm_set #(
 	output [width*z-1:0] c_set //packed cost terms
 );
 
-	wire [width-1:0] a[z-1:0], y[z-1:0], costterm[z-1:0];
+	wire signed [width-1:0] a[z-1:0], y[z-1:0], costterm[z-1:0];
 
 	genvar gv_i;
 
@@ -99,7 +100,7 @@ module costterm_set #(
 		assign a[gv_i] = a_set[width*(gv_i+1)-1:width*gv_i];
 		assign y[gv_i] =  (~{{int_bits{1'b0}},y_set[gv_i],{frac_bits{1'b0}}})+1;
 		/*[Eg: Say width = 16, int_bits = 5 => frac_bits = 10]
-		Then, if y_set[gv_i]=0, y[gv_i] = 00000 0 0000000000. If y_set[gv_i]=1, y[gv_i] = 11111 1 0000000000
+		Then, if y_set[gv_i]=0, y[gv_i] = 0 00000 0000000000. If y_set[gv_i]=1, y[gv_i] = 1 11111 0000000000
 		After this, a[gv_i]+y[gv_i] actually gives the 16-bit appropriate representation of a-y */
 		assign c_set[width*(gv_i+1)-1:width*gv_i] = costterm[gv_i];
 	end
@@ -228,7 +229,7 @@ module max_finder #(
 )(
 	input signed [width-1:0] a,
 	input signed [width-1:0] b,
-	output [width-1:0] out,
+	output signed [width-1:0] out,
 	output pos //0 if a>=b, otherwise 1
 );
 	assign out = (a>=b)? a : b;
@@ -243,7 +244,7 @@ module max_finder_set #(
 	parameter poswidth = (N==1) ? 1 : $clog2(N)
 )(
 	input [width*N-1:0] in,
-	output [width-1:0] out,
+	output signed [width-1:0] out,
 	output [poswidth-1:0] pos
 );
 	wire [width*(N-1)-1:0] intermeds; //intermediate max2to1 outputs
@@ -296,6 +297,7 @@ endmodule
 
 
 // This is a parallel register with asynchronous reset, i.e. width 1-bit DFFs
+// Changing to synchronous reset by deleting @posedge reset does NOT work [TODO] WHY??
 module DFF #(
 	parameter width = 16 //No. of DFFs in parallel
 )(

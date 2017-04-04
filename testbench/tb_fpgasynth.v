@@ -36,7 +36,7 @@ module tb_fpgasynth #(
 	wire [width_in*z[0]/fo[0]-1:0] a_in; //No. of input activations coming into input layer per clock, each having width_in bits
 	wire [z[L-2]/fi[L-2]-1:0] y_in; //No. of ideal outputs coming into input layer per clock
 	wire [z[L-2]/fi[L-2]-1:0] y_out; //ideal output (y_in after going through all layers)
-	wire [n[L-1]-1:0] a_out; //Actual output [Eg: 4/4=1 output neuron processed per clock]
+	wire [n[L-1]-1:0] a_out; //Actual output [Eg: 4/4=1 output neuron processed per clock] of ALL output neurons
 	// wire [z[L-2]/fi[L-2]-1:0] a_out;
 	////////////////////////////////////////////////////////////////////////////////////
 
@@ -71,13 +71,14 @@ module tb_fpgasynth #(
 	// Set Clock, Cycle Clock, Reset, eta
 	////////////////////////////////////////////////////////////////////////////////////
 	initial begin
+	    //#0 clk=1;
 		//#1 reset = 1;	
 		#81 reset = 0;
 	end
 
 	initial begin
 		eta = Eta * (2 ** frac_bits); //convert the Eta to fix point
-		eta = ~eta + 1;
+		eta = ~eta + 1; //Make eta negative so that adding eta will actually subtract it, as required for learning
 	end
 
 	always #(clock_period/2) clk = ~clk;
@@ -130,8 +131,8 @@ module tb_fpgasynth #(
 		1 line is one pattern with 10 one-hot binary. Values from 10-15 are set to 0 */
 	////////////////////////////////////////////////////////////////////////////////////
 	
-	reg [width-1:0] memJ1 [1999:0]; //1st junction weight memory
-	reg [width-1:0] memJ2 [1999:0]; //2nd junction weight memory
+	reg signed [width-1:0] memJ1 [1999:0]; //1st junction weight memory
+	reg signed [width-1:0] memJ2 [1999:0]; //2nd junction weight memory
 	
 	/* SIMULATOR NOTES:
 	*	Modelsim can read a input file with spaces and assign it in natural counting order

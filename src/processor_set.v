@@ -22,13 +22,13 @@ module FF_processor_set #(
 );
 
 	// unpack
-	wire [width-1:0] a[z-1:0];
-	wire [width-1:0] w[z-1:0];
-	wire [width-1:0] b[z/fi-1:0];
+	wire [width-1:0] a[z-1:0]; //assume always positive (true for sigmoid and relu)
+	wire signed [width-1:0] w[z-1:0];
+	wire signed [width-1:0] b[z/fi-1:0];
 	wire [width-1:0] sigmoid[z/fi-1:0];
 	wire [width-1:0] sp[z/fi-1:0];
 	
-	wire [width-1:0] aw[z-1:0]; //a*w
+	wire signed [width-1:0] aw[z-1:0]; //a*w
 	wire [width*fi-1:0] aw_package[z/fi-1:0]; //1 aw_package value for each output neuron (total z/fi). Each has a width-bit value for each fi, so total width*fi
 	
 	genvar gv_i, gv_j;
@@ -53,7 +53,7 @@ module FF_processor_set #(
 
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
 	begin : multiplier
-		multiplier #( .width(width), .int_bits(int_bits) ) mul ( a[gv_i], w[gv_i], aw[gv_i] );
+		multiplier #(.width(width), .int_bits(int_bits)) mul ( a[gv_i], w[gv_i], aw[gv_i] );
 	end
 	endgenerate
 
@@ -73,7 +73,7 @@ module FF_processor_set #(
 endmodule
 
 // Submodule of FF processor set
-// [todo] generalize this for other activations
+// [TODO] generalize this for other activations
 module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	parameter fo = 2,
 	parameter fi  = 4,
@@ -88,7 +88,7 @@ module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	input clk,
 	// All the following parameters are for 1 neuron
 	input [width*fi-1:0] aw_package,
-	input [width-1:0] b,
+	input signed [width-1:0] b,
 	output [width-1:0] sigmoid, //actn value
 	output [width-1:0] sp //actn' value to be used in BP
 );
@@ -101,9 +101,9 @@ module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	pz[4] = pz[1]+pz[0], pz[5]=pz[3]+pz[2]
 	Finally pz[6] = pz[4]+pz[5] */
 	
-	wire [width_TA-1:0] partial_s [fi*2-2:0];
-	wire [width_TA-1:0] s_raw;
-	wire [width-1:0] s;
+	wire signed [width_TA-1:0] partial_s [fi*2-2:0];
+	wire signed [width_TA-1:0] s_raw;
+	wire signed [width-1:0] s;
 	genvar gv_i, gv_j;
 	generate for (gv_i = 0; gv_i<fi; gv_i = gv_i + 1)
 	begin : unpackage
@@ -160,13 +160,13 @@ module BP_processor_set #(
 );
 
 	// Unpack
-	wire [width-1:0] deltan [z/fi-1:0];
+	wire signed [width-1:0] deltan [z/fi-1:0];
 	wire [width-1:0] sp [z-1:0];
-	wire [width-1:0] partial_d [z-1:0];
-	wire [width-1:0] w [z-1:0];
-	wire [width-1:0] deltap [z-1:0];
-	wire [width-1:0] delta_a [z-1:0];
-	wire [width-1:0] delta_w [z-1:0];
+	wire signed [width-1:0] partial_d [z-1:0];
+	wire signed [width-1:0] w [z-1:0];
+	wire signed [width-1:0] deltap [z-1:0];
+	wire signed [width-1:0] delta_a [z-1:0];
+	wire signed [width-1:0] delta_w [z-1:0];
 
 	reg mem[2:0][3:0];
 	genvar gv_i, gv_j;
@@ -217,7 +217,7 @@ module UP_processor_set #(
 	//parameter lamda = 1
 )(
 	// Note that updates are done for z weights in a junction and n neurons in succeeding layer
-	input [width-1:0] eta,
+	input signed [width-1:0] eta,
 	inout [width*z/fi-1:0] delta_package, //deln
 	input [width*z-1:0] w_package, //Existing weights whose values will be updated
 	input [width*z/fi-1:0] b_package, //Existing bias of n neurons whose values will be updated
@@ -231,17 +231,17 @@ module UP_processor_set #(
 	
 	// Unpack
 	wire [width-1:0] a [z-1:0];
-	wire [width-1:0] w [z-1:0];
-	wire [width-1:0] b [z/fi-1:0];
-	wire [width-1:0] delta [z/fi-1:0];
+	wire signed [width-1:0] w [z-1:0];
+	wire signed [width-1:0] b [z/fi-1:0];
+	wire signed [width-1:0] delta [z/fi-1:0];
 	
-	wire [width-1:0] delta_w [z-1:0];
-	wire [width-1:0] w_new [z-1:0];
-	wire [width-1:0] w_UP [z-1:0];
+	wire signed [width-1:0] delta_w [z-1:0];
+	wire signed [width-1:0] w_new [z-1:0];
+	wire signed [width-1:0] w_UP [z-1:0];
 	
-	wire [width-1:0] delta_b [z/fi-1:0];
-	wire [width-1:0] b_new [z/fi-1:0];
-	wire [width-1:0] b_UP [z/fi-1:0];
+	wire signed [width-1:0] delta_b [z/fi-1:0];
+	wire signed [width-1:0] b_new [z/fi-1:0];
+	wire signed [width-1:0] b_UP [z/fi-1:0];
 
 	genvar gv_i, gv_j;
 	

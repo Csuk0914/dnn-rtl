@@ -163,10 +163,10 @@ module dual_port_memory #(
 		#0.1; //memJ1 and memJ2 are read in the testbench at t=0. So wait a small while before reading from them
 		if(fi != 0) begin
 			for (i = 0; i < depth; i = i + 1) begin
-				if((fi+fo) == tb_fpgasynth.fi[0]+tb_fpgasynth.fo[0])
-					#0.1 mem[i] = tb_fpgasynth.memJ1[($random%1000+1000)]; //apparently $random%1000 gives a number in +/-999, so adding 1000 gives a number in [1,1999] as per the data file requirement
-				else if ((fi+fo) == tb_fpgasynth.fi[1]+tb_fpgasynth.fo[1])
-					#0.1 mem[i] = tb_fpgasynth.memJ2[($random%1000+1000)];
+				if((fi+fo) == tb_mnist.fi[0]+tb_mnist.fo[0])
+					#0.1 mem[i] = tb_mnist.memJ1[($random%1000+1000)]; //apparently $random%1000 gives a number in +/-999, so adding 1000 gives a number in [1,1999] as per the data file requirement
+				else if ((fi+fo) == tb_mnist.fi[1]+tb_mnist.fo[1])
+					#0.1 mem[i] = tb_mnist.memJ2[($random%1000+1000)];
 			end
 		end
 		// for other memories, initialize to 0 value by passing parameter fi=0 during instantiation

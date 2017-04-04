@@ -42,7 +42,7 @@ module DNN #(
 )(
 	input [width_in*z[0]/fo[0]-1:0] a_in, //Load activations from outside. z[0] weights processed together in first junction => z[0]/fo[0] activations together
 	input [z[L-2]/fi[L-2]-1:0] y_in, //Load ideal outputs from outside. z[L-2] weights processed together in last junction => z[L-2]/fi[L-2] ideal outputs together, each is 1b 
-	input [width-1:0] eta_in, //learning rate
+	input signed [width-1:0] eta_in, //learning rate
 	// Note that eta is an input, so each training sample can have its own eta. However, all the LAYERS HAVE THE SAME eta for a particular sample
 	// By making eta an input, the problem of random weight updates after reset is solved, because each eta is introduced with input data
 	input clk,
@@ -63,7 +63,7 @@ module DNN #(
 	So these signals remain same regardless of no. of hidden layers */
 	wire [width*z[0]/fi[0]-1:0] act1, sp1, d1; //z[0]/fi[0] is the no. of neurons processed in 1 cycle at the input of the black box, i.e. 1st hidden layer
 	wire [width*z[L-2]/fi[L-2]-1:0] actL, spL, dL; //z[L-2]/fi[L-2] is the no. of neurons processed in 1 cycle in the last layer, i.e. output of the black box
-	wire [width-1:0] eta1, eta2; //eta is same for all layers, but timestamps are different. eta1 is a delayed version of eta2, see below
+	wire signed [width-1:0] eta1, eta2; //eta is same for all layers, but timestamps are different. eta1 is a delayed version of eta2, see below
 	
 	cycle_block_counter #(
 		.cpc(cpc)
@@ -131,7 +131,7 @@ module DNN #(
 
 	// Max act logic
 	wire [width-1:0] maxactL, //local max act every cycle
-						  final_maxactL; //global max act every cpc cycles
+				     final_maxactL; //global max act every cpc cycles
 	reg [width-1:0] stored_maxactL; //current global max act in the middle of a block cycle
 	wire [maxactL_pos_width-1:0] maxactL_pos;
 	reg [$clog2(n[L-1])-1:0] stored_maxactL_pos;

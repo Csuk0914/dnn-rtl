@@ -15,8 +15,8 @@ module tb_mnist #(
 	//parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
 	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
 	// Testbench parameters:
-	parameter training_cases = 500, //number of cases to consider out of entire MNIST. Should be <= 50000
-	parameter total_training_cases = 1*training_cases, //total number of training cases over all epochs
+	parameter training_cases = 10000, //number of cases to consider out of entire MNIST. Should be <= 50000
+	parameter total_training_cases = 10*training_cases, //total number of training cases over all epochs
 	//parameter test_cases = 8,
 	parameter checklast = 1000, //how many previous inputs to compute accuracy from
 	parameter clock_period = 10,
@@ -30,11 +30,11 @@ module tb_mnist #(
 	////////////////////////////////////////////////////////////////////////////////////
 	reg clk = 1;
 	reg reset = 1;
-	reg [width-1:0] eta;
+	reg signed [width-1:0] eta;
 	wire [width_in*z[0]/fo[0]-1:0] a_in; //No. of input activations coming into input layer per clock, each having width_in bits
 	wire [z[L-2]/fi[L-2]-1:0] y_in; //No. of ideal outputs coming into input layer per clock
 	wire [z[L-2]/fi[L-2]-1:0] y_out; //ideal output (y_in after going through all layers)
-	wire [n[L-1]-1:0] a_out; //Actual output [Eg: 4/4=1 output neuron processed per clock]
+	wire [n[L-1]-1:0] a_out; //Actual output [Eg: 4/4=1 output neuron processed per clock] of ALL output neurons
 	// wire [z[L-2]/fi[L-2]-1:0] a_out;
 	////////////////////////////////////////////////////////////////////////////////////
 
@@ -75,7 +75,7 @@ module tb_mnist #(
 
 	initial begin
 		eta = Eta * (2 ** frac_bits); //convert the Eta to fix point
-		eta = ~eta + 1;
+		eta = ~eta + 1; //Make eta negative so that adding eta will actually subtract it, as required for learning
 	end
 
 	always #(clock_period/2) clk = ~clk;
@@ -128,8 +128,8 @@ module tb_mnist #(
 		1 line is one pattern with 10 one-hot binary. Values from 10-15 are set to 0 */
 	////////////////////////////////////////////////////////////////////////////////////
 	
-	reg [width-1:0] memJ1 [1999:0]; //1st junction weight memory
-    reg [width-1:0] memJ2 [1999:0]; //2nd junction weight memory
+	reg signed [width-1:0] memJ1 [1999:0]; //1st junction weight memory
+	reg signed [width-1:0] memJ2 [1999:0]; //2nd junction weight memory
 	
 	/* SIMULATOR NOTES:
 	*	Modelsim can read a input file with spaces and assign it in natural counting order
@@ -143,24 +143,24 @@ module tb_mnist #(
 	KEEP 1 OF THE 2 FOLLOWING PORTIONS AND COMMENT OUT THE OTHER ONE */
 	
 	// MODELSIM 
-	/*reg [width_in-1:0] a_mem[training_cases-1:0][783:0]; //inputs
+	reg [width_in-1:0] a_mem[training_cases-1:0][783:0]; //inputs
 	reg y_mem[training_cases-1:0][9:0]; //ideal outputs
 	initial begin
 		$readmemb("./gaussian_list/s136_frc7_int2.dat", memJ1);
-        $readmemb("./gaussian_list/s40_frc7_int2.dat", memJ2);
-        $readmemb("train_idealout_spaced.dat", y_mem);
-        $readmemh("train_input_spaced.dat", a_mem);
-	end*/
+		$readmemb("./gaussian_list/s40_frc7_int2.dat", memJ2);
+		$readmemb("train_idealout_spaced.dat", y_mem);
+		$readmemh("train_input_spaced.dat", a_mem);
+	end
         
 	// VIVADO
-	reg [width_in-1:0] a_mem[training_cases-1:0][0:783]; //flipping only occurs in the 784 dimension
+	/*reg [width_in-1:0] a_mem[training_cases-1:0][0:783]; //flipping only occurs in the 784 dimension
 	reg y_mem[training_cases-1:0][0:9]; //flipping only occurs in the 10 dimension
 	initial begin
 		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s136_frc7_int2.dat", memJ1);
 		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s40_frc7_int2.dat", memJ2);
 		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout.dat", y_mem);
 		$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input.dat", a_mem);
-	end
+	end*/
 
 
 	genvar gv_i;	

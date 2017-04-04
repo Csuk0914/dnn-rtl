@@ -13,7 +13,7 @@ module sigmoid_t #(
 	parameter lut_size = (2**width>4096) ? 4096 : 2**width //no. of cells in LUT
 )(
 	input clk,
-	input [width-1:0] z,
+	input signed [width-1:0] z,
 	output reg [width-1:0] sigmoid_out
 );
 	reg [frac_bits-1:0] sigmoid;
@@ -1076,7 +1076,7 @@ module sig_prime #(
 	parameter lut_size = (2**width>4096) ? 4096 : 2**width
 )(
 	input clk,
-	input [width-1:0] z,
+	input signed [width-1:0] z,
 	output reg[width-1:0] sp_out
 );
 
