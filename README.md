@@ -29,12 +29,7 @@ bin - Top level binary files (Mahdi)
 
 
 
-WHENEVER SIMULATING:
-
-If simulator is changed:
-
-	testbench - Make sure correct simulator (Modelsim or Vivado) portion is uncommented in Data import block.
-	If using Vivado, please UNTICK xsim.simulate.log_all_signals in Simulation tab in Simulation Settings in Left Pane
+RUNNING:
 
 If bit widths are changed:
 	
@@ -61,12 +56,21 @@ If network parameters are changed:
 		Change Gaussian file names
 	If bit widths and simulator are also changed, see above sections
 
+Simulation:
 
-SIMULATION FILES: (Sourya's machine only)
+	testbench - Make sure correct simulator (Modelsim or Vivado) portion is uncommented in Data import block.
+	If using Vivado, please UNTICK xsim.simulate.log_all_signals in Simulation tab in Simulation Settings in Left Pane
+
+Location of Simulation Files: (Sourya's machine only)
 
 	Modelsim: VBox Windows Desktop -> Verilog/DNN
 	Vivado: VBox Windows Desktop -> Vivado/projectname/projectname/projectname.sim/sim_1/behav
 	Periodically delete VBox Windows Desktop -> Vivado/projectname/projectname.cache to save space
+
+Synthesis: (Remember to undo these changes for simulation only)
+
+	memories.v - Comment out initial blocks and the integer declarations preceding them
+	[Optional] interleaver_array.v - Comment out the sweepstart cases not used
 
 
 CONSTRAINTS:
