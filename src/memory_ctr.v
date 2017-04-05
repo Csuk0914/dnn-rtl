@@ -93,7 +93,7 @@ module output_layer_state_machine #( //This is a state machine, so it controls l
 		begin: enable
 			assign we[gv_i][gv_j] = actual_coll_wpt==gv_i && cycle_index>1? ~reset : 0; //1st cycle is only for read. Write starting from 2nd cycle
 			assign addr[gv_i][$clog2(p/z)*(gv_j+1)-1:$clog2(p/z)*gv_j] = 
-			actual_coll_wpt==gv_i ? cycle_index_delay[$clog2(p/z)-1:0] : cycle_index[$clog2(p/z)-1:0];
+				actual_coll_wpt==gv_i ? cycle_index_delay[$clog2(p/z)-1:0] : cycle_index[$clog2(p/z)-1:0];
 			//If actual_coll_wpt equals collection ID (0 or 1), then memory is being written. Write in cycles 2,3,...,cpc-1. Otherwise memory is being read. Read in cycles 0,1,...,cpc-3
 		end
 	end
