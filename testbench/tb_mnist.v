@@ -11,7 +11,7 @@ module tb_mnist #(
 	parameter [31:0]fi[0:L-2]  = '{128, 32},
 	parameter [31:0]z[0:L-2]  = '{512, 32},
 	parameter [31:0]n[0:L-1] = '{1024, 64, 16},
-	parameter Eta = 0.0625, //DO NOT WRITE THIS AS 2**x, that doesn't work
+	parameter Eta = 2.0**(-4), //DO NOT WRITE THIS AS 2**x, it doesn't work without 2.0
 	//parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
 	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
 	// Testbench parameters:
@@ -211,30 +211,31 @@ module tb_mnist #(
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// Probe DNN signals
-	/* The following line converts any variable x[width-1:0] from its 2'c complement binary representation to signed decimal representation
-		x/2.0**frac_bits - x[width-1]*2.0**(1+int_bits)  */
+	/* This converts any SIGNED variable x[width-1:0] from binary to decimal: x/2.0**frac_bits
+		This converts any UNSIGNED variable x[width-1:0] from binary 2C to decimal: x/2.0**frac_bits - x[width-1]*2.0**(1+int_bits)  */
 	////////////////////////////////////////////////////////////////////////////////////
 	always @(negedge clk) begin
 		if (cycle_index==2) begin
 			for (q=0;q<z[L-2];q=q+1) begin //Weights and activations
-				a1[q] = DNN.hidden_layer_block_1.UP_processor.a[q]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.a[q][width-1]*2.0**(1+int_bits);
-				wb1[q] = DNN.hidden_layer_block_1.UP_processor.w[q]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.w[q][width-1]*2.0**(1+int_bits);
-				//del_wb1[q] = DNN.hidden_layer_block_1.UP_processor.delta_w[q]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.delta_w[q][width-1]*2.0**(1+int_bits);
+				a1[q] = DNN.hidden_layer_block_1.UP_processor.a[q]/2.0**frac_bits;
+				wb1[q] = DNN.hidden_layer_block_1.UP_processor.w[q]/2.0**frac_bits;
+				//del_wb1[q] = DNN.hidden_layer_block_1.UP_processor.delta_w[q]/2.0**frac_bits;
 			end
 			for (q=z[L-2];q<z[L-2]+z[L-2]/fi[L-2];q=q+1) begin //Biases
-				wb1[q] =DNN.hidden_layer_block_1.UP_processor.b[q-z[L-2]]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.b[q-z[L-2]][width-1]*2.0**(1+int_bits);
-				//del_wb1[q] =DNN.hidden_layer_block_1.UP_processor.delta_b[q-z[L-2]]/2.0**frac_bits - DNN.hidden_layer_block_1.UP_processor.delta_b[q-z[L-2]][width-1]*2.0**(1+int_bits);
+				wb1[q] =DNN.hidden_layer_block_1.UP_processor.b[q-z[L-2]]/2.0**frac_bits;
+				//del_wb1[q] =DNN.hidden_layer_block_1.UP_processor.delta_b[q-z[L-2]]/2.0**frac_bits;
 			end
 		end
 		if (cycle_index>1) begin //Actual output, ideal output, delta
 			net_a_out[cycle_index-2] = DNN.actL/2.0**frac_bits;
-			net_y_out[cycle_index-2] = y_out; //Division is not required because it is not in 32-bit form
-			// a_minus_y[cycle_index-2] = DNN.output_layer_block.a_minus_y/2.0**frac_bits - DNN.output_layer_block.a_minus_y[width-1]*2.0**(1+int_bits);
-			// spL[cycle_index-2] = DNN.output_layer_block.spL/2.0**frac_bits - DNN.output_layer_block.spL[width-1]*2.0**(1+int_bits);
-			delta[cycle_index-2] = DNN.output_layer_block.delta/2.0**frac_bits - DNN.output_layer_block.delta[width-1]*2.0**(1+int_bits);
+			net_y_out[cycle_index-2] = y_out; //Division is not required because it is not in bit form
+			// spL[cycle_index-2] = DNN.output_layer_block.spL/2.0**frac_bits;
+			// The next 2 values occur as packed inside src (which can't be signed), so we need to separate 1 unsigned value
+			delta[cycle_index-2] = DNN.output_layer_block.delta[width-1:0]/2.0**frac_bits - DNN.output_layer_block.delta[width-1]*2.0**(1+int_bits);
+			// a_minus_y[cycle_index-2] = DNN.output_layer_block.a_minus_y[width-1:0]/2.0**frac_bits - DNN.output_layer_block.a_minus_y[width-1]*2.0**(1+int_bits);
 		end
 		/*if (cycle_index>0 && cycle_index<=cpc-2) begin //z of output layer
-			zL[cycle_index-1] = DNN.hidden_layer_block_1.FF_processor.sigmoid_function_set[0].s_function.s/2.0**frac_bits - DNN.hidden_layer_block_1.FF_processor.sigmoid_function_set[0].s_function.s[width-1]*2.0**(1+int_bits);
+			zL[cycle_index-1] = DNN.hidden_layer_block_1.FF_processor.sigmoid_function_set[0].s_function.s/2.0**frac_bits;
 		end*/
 	end
 	////////////////////////////////////////////////////////////////////////////////////

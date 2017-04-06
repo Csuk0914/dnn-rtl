@@ -314,8 +314,26 @@ module DFF #(
 	end
 endmodule
 
+// This is a parallel register with synchronous reset, i.e. width 1-bit DFFs
+// [TODO] Use this for all DFFs not triggered by cycle_clk, i.e. use for all clk triggered DFFs
+module DFF_syncreset #(
+	parameter width = 16 //No. of DFFs in parallel
+)(
+	input clk,
+	input reset,
+	input [width-1:0] d,
+	output reg [width-1:0] q
+);
+	always @(posedge clk) begin
+		if (reset)
+			q <= {width{1'b0}};
+		else
+			q <= d;
+	end
+endmodule
 
-// This is a serial bank of parallel registers, i.e. depth banks, each bank has width 1-bit DFFs
+
+// This is a serial bank of parallel registers, i.e. depth banks, each bank has width 1-bit async DFFs
 module shift_reg #(
 	parameter width = 16, //No. of DFFs in parallel
 	parameter depth = 8 //No. of serial banks. Must be >= 2

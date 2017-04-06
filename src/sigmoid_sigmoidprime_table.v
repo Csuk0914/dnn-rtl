@@ -31,7 +31,7 @@ module sigmoid_t #(
 		{{(int_bits+1){1'b0}}, sigmoid} : //If z is within [-maxdomain,+maxdomain), insert all 0s for sign and integer part (since sigmoid is always between 0 and 1) and then frac_bits sigmoid part
 		(z[width-1]) ? //If z is outside the range, sigmoid will be 0 or 1 depending on sign bit
 		1 : //If sign bit is 1, z is negative. Then sigmoid is all zeros followed by 1 at LSB, i.e. 2^(-frac_bits), which is the lowest number possible (~=0)
-		{{(int_bits+1){1'b0}},{(frac_bits){1'b1}}}; //If sign bit is 0, z is positive. Then sigmoid is all 1s in the frational part, i.e. 1-2^(-frac_bits), which is the highest number possible (~=1)
+		{{(int_bits+1){1'b0}},{(frac_bits){1'b1}}}; //If sign bit is 0, z is positive. Then sigmoid is all 1s in the fractional part, i.e. 1-2^(-frac_bits), which is the highest number possible (~=1)
 	end
 
 	always @(z[frac_bits+$clog2(maxdomain):frac_bits-$clog2(lut_size)+$clog2(maxdomain)+1]) //this ensures that we read exactly log(lut_size) bits as address of LUT
