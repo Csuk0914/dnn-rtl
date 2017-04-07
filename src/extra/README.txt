@@ -1,4 +1,4 @@
-Extra code:
+Extra code. To run, PUT FILES IN RESPECTIVE FOLDERS, like tb_mnist in testbench folder and rest in src folder.
 
 eta_backtoparam:
 	Converts eta to parameter (like it was previously), but value = -log(eta). Eg: If actual eta=0.0625, then eta = 4
