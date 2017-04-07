@@ -29,48 +29,53 @@ bin - Top level binary files (Mahdi)
 
 
 
-RUNNING:
+RUNNING: (Key: [NC] - Network configuration changed only, [BW] - Bit widths changed only, [SIM] - Behavioral Simulation in either Modelsim or Vivado, [SYNTH] - Synthesis in Vivado)
 
-If bit widths are changed:
+Testbench [SIM]
 	
-	Sigmoid and sigmoid prime files - Refer to comments at top of /src/sigmoid_sigmoidprime_table.v and /scripts/actlut_generator.py
-	Gaussian lists - Regenerate using /src/glorotnormal_init_generator.py and put new files in local Verilog folder on Windows
-	tb_mnist - Change parameters at top. Change gaussian file names there.
-
-If network parameters are changed:
+	[General] Make sure correct simulator (Modelsim or Vivado) portion is uncommented in Data import block. If using Vivado, please UNTICK xsim.simulate.log_all_signals in Simulation tab in Simulation Settings in Left Pane
+	[NC] Create new testbench (use tb_mnist as ref)
+	[NC,BW] Change parameters at top
+	[NC] In the Modelsim and Vivado portions in data import, change 784,783,10,9 to nin,nin-1,nout,nout-1 (numbers of input and output neurons)
+	[NC,BW] Change Gaussian file names
 	
-	New datasets may need to be generated:
-		Use scripts/create_data to get training input and output files in Vivado format.
-		The file is not completely parameterized - refer to comments on top
-		(Additional processing needs to be added for Modelsim format)
-	Gaussian lists have to be regenerated for new fi, fo (see above sec for details)
-	Add new datasets and Gaussian lists to Verilog folder on Windows desktop
-	DNN.v - Delete this following line wherever it comes, when applicable: /****************** DELETE THIS LINE if z[L-2]/fi[L-2]>1 ************************
-	memories.v - Search for tb_ (match case) in memories.v and change it to the testbench module name being used, like tb_mnist
-	interleaver_array.v - Define all sweepstart cases for different p/z and fo*z
-	If interleaver_drp is used, comment out higher m else if statements inside r_dither and w_dither in case of any issue while running smaller DNNs
-	Testbench: (Use tb_mnist as reference)
-		Best is to create a new testbench for each dataset
-		Change parameters at top
-		In the Modelsim and Vivado portions in data import, change 784,783,10,9 to nin,nin-1,nout,nout-1 (numbers of input and output neurons)
-		Change Gaussian file names
-	If bit widths and simulator are also changed, see above sections
+DNN.v
 
-Simulation:
+	[NC] Delete this following line wherever it comes, when applicable: /****************** DELETE THIS LINE if z[L-2]/fi[L-2]>1 ************************
+	[NC,BW][SYNTH] Change parameters at top
+	
+memories.v
 
-	testbench - Make sure correct simulator (Modelsim or Vivado) portion is uncommented in Data import block.
-	If using Vivado, please UNTICK xsim.simulate.log_all_signals in Simulation tab in Simulation Settings in Left Pane
+	[NC][SIM] Search for tb_ (match case) in memories.v and change it to the testbench module name being used, like tb_mnist
+	[SYNTH] Comment out initial blocks and the integer declarations preceding them
+	
+interleavers (Assume interleaver_array unless otherwise noted)
+
+	[NC] Define all sweepstart cases for different p/z and fo*z
+	[NC,BW] If interleaver_drp is used, comment out higher m else if statements inside r_dither and w_dither in case of any issue while running smaller DNNs
+	[SYNTH] Comment out the sweepstart cases not used
+	
+sigmoid_sigmoidprime_table.v
+
+	[BW] Refer to comments at top of /src/sigmoid_sigmoidprime_table.v and /scripts/actlut_generator.py
+
+Gaussian lists
+
+	[NC,BW] Regenerate using /src/glorotnormal_init_generator.py
+	Put new files in local Verilog folder on Windows
+	
+New datasets [NC]
+
+	Use scripts/create_data to get training input and output files in Vivado format.
+	The file is not completely parameterized - refer to comments on top
+	(Additional processing needs to be added for Modelsim format)
+	Put new files in local Verilog folder on Windows
 
 Location of Simulation Files: (Sourya's machine only)
 
 	Modelsim: VBox Windows Desktop -> Verilog/DNN
 	Vivado: VBox Windows Desktop -> Vivado/projectname/projectname/projectname.sim/sim_1/behav
 	Periodically delete VBox Windows Desktop -> Vivado/projectname/projectname.cache to save space
-
-Synthesis: (Remember to undo these changes for simulation only)
-
-	memories.v - Comment out initial blocks and the integer declarations preceding them
-	[Optional] interleaver_array.v - Comment out the sweepstart cases not used
 
 
 CONSTRAINTS:
