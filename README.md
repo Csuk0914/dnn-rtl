@@ -71,11 +71,13 @@ New datasets [NC]
 	(Additional processing needs to be added for Modelsim format)
 	Put new files in local Verilog folder on Windows
 
-Location of Simulation Files: (Sourya's machine only)
+Location of Files:
 
-	Modelsim: VBox Windows Desktop -> Verilog/DNN
-	Vivado: VBox Windows Desktop -> Vivado/projectname/projectname/projectname.sim/sim_1/behav
-	Periodically delete VBox Windows Desktop -> Vivado/projectname/projectname.cache to save space
+	[SIM] Modelsim [Sourya's Machine]: Windows -> Verilog/DNN
+	[SIM] Vivado: Windows -> <Vivado folder>/<projectname>/<projectname>.sim/sim_1/behav
+	[SYNTH] Basic report: <Vivado folder>/<projectname>/<projectname>.runs/synth_1/<topmodulename>_utilization_synth.rpt
+	[SYNTH] Detailed report: <Vivado folder>/<projectname>/<projectname>.runs/synth_1/<topmodulename>.vds
+	[General] Periodically delete Windows -> <Vivado folder>/<projectname>/<projectname>.cache to save space
 
 
 CONSTRAINTS:
