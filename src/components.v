@@ -316,9 +316,10 @@ module DFF #(
 	end
 endmodule
 
+`ifdef SYNCFF
 // This is a parallel register with synchronous reset, i.e. width 1-bit DFFs
 // [TODO] Use this for all DFFs not triggered by cycle_clk, i.e. use for all clk triggered DFFs
-/*module DFF_syncreset #(
+module DFF_syncreset #(
 	parameter width = 16 //No. of DFFs in parallel
 )(
 	input clk,
@@ -332,7 +333,8 @@ endmodule
 		else
 			q <= d;
 	end
-endmodule*/
+endmodule
+`endif
 
 
 // This is a serial bank of parallel registers, i.e. depth banks, each bank has width 1-bit async DFFs
