@@ -1,6 +1,9 @@
 // Implementing rs_chng + rsweep_chng interleaver
 `timescale 1ns/100ps
 
+//`define MNIST
+`define SMALLNET
+
 module interleaver_set #(
 	parameter fo = 2,
 	parameter fi  = 4,
@@ -29,27 +32,21 @@ module interleaver_set #(
 	// A better option is to store sweepstart in a 1D array of flops and initialize on reset
 	reg [$clog2(p/z)*fo*z-1:0] sweepstart;
 	always @(posedge reset) begin
-		// Baby network 64x16x4
-		if ((p/z)==2 && (fo*z)==64)
-	  	  	sweepstart = 64'b1101000010111100010000000000001010100110011010111100010000011111;
-		else if ((p/z)==2 && (fo*z)==16)
-		  	  sweepstart = 16'b0111000110001110;
+		`ifdef SMALLNET // Baby network 64x16x4
+			if ((p/z)==2 && (fo*z)==64) sweepstart = 64'b1101000010111100010000000000001010100110011010111100010000011111;
+			else if ((p/z)==2 && (fo*z)==16) sweepstart = 16'b0111000110001110;
 			  
-		// MNIST 1024x64x16
-	  	/*if ((p/z)==2 && (fo*z)==4096)
-			sweepstart = 4096'hd0bc4002a66bc4751f90eeb78c9be0ca981fec47fd90e8b3fe04987a4c7f85d6a8c230af9b2bf8790c022274174bfbf0594e01ff2af007e00aacfbf99ad76093a54c24481c877e32d5f594bbb5da4b74592a287f7d62d18597be33d1e48e9e436303bdac2f4179549e7b422130a0cac25db4fadcc7f294c4952483db10bd3a5d728f85cb5dcdc8d991f919c9c74a1b8204ca6f99153e55037710af5076f148ad63c9460896e3e7f0b1ecd529796b3d65434207f94023e7454c279ec9e7b9d875f6b310c1cb7836375b3d1228f17627eeda16913b081ccba6647693f50cf9a19a670a4da6822fa607cda8d592900ab83ee9f4de3a60c190da75de196e57f705f0acc5742f58a5b55e3a53b8d5dead3d9bf7adbf08080f3ac4e695ce0609826ec8c71f74909a4a0a8ed599b42a96ed52b3a9458e6278a902b1e57884d9dff42714261b0a8f2eff82a63efc33121d11e224159fe6fe67d80480154e85e8b1b6325e905cceea9d1a875e6863fb89921e33bc01ff1aca31ccf6e20327a3055f5e5cf5b5de038085c5161b9ff66dd3bdd9bc4a664c8e702c927f7525e6a671571e4ed5dde329751d4fe5cf57a50a961baf00869a9a51048282f0f51923ad27780796248ca4d3b9073b1b6aa0393ff7c7558c033458cc2aa8e591a20a47656330e9779c241967812fc1ebaa5ef733080b955f92b504b5a3e96de41f8cb1ffdae4467c47;  
-	  	else if ((p/z)==2 && (fo*z)==256)
-			sweepstart = 256'he53cd0663a8bcab10553bbc6244fe51b90ed33c5b344b91d44dd7a34e8a8f9a1;*/
+		`elsif MNIST // MNIST 1024x64x16
+	  		if ((p/z)==2 && (fo*z)==4096) sweepstart = 4096'hd0bc4002a66bc4751f90eeb78c9be0ca981fec47fd90e8b3fe04987a4c7f85d6a8c230af9b2bf8790c022274174bfbf0594e01ff2af007e00aacfbf99ad76093a54c24481c877e32d5f594bbb5da4b74592a287f7d62d18597be33d1e48e9e436303bdac2f4179549e7b422130a0cac25db4fadcc7f294c4952483db10bd3a5d728f85cb5dcdc8d991f919c9c74a1b8204ca6f99153e55037710af5076f148ad63c9460896e3e7f0b1ecd529796b3d65434207f94023e7454c279ec9e7b9d875f6b310c1cb7836375b3d1228f17627eeda16913b081ccba6647693f50cf9a19a670a4da6822fa607cda8d592900ab83ee9f4de3a60c190da75de196e57f705f0acc5742f58a5b55e3a53b8d5dead3d9bf7adbf08080f3ac4e695ce0609826ec8c71f74909a4a0a8ed599b42a96ed52b3a9458e6278a902b1e57884d9dff42714261b0a8f2eff82a63efc33121d11e224159fe6fe67d80480154e85e8b1b6325e905cceea9d1a875e6863fb89921e33bc01ff1aca31ccf6e20327a3055f5e5cf5b5de038085c5161b9ff66dd3bdd9bc4a664c8e702c927f7525e6a671571e4ed5dde329751d4fe5cf57a50a961baf00869a9a51048282f0f51923ad27780796248ca4d3b9073b1b6aa0393ff7c7558c033458cc2aa8e591a20a47656330e9779c241967812fc1ebaa5ef733080b955f92b504b5a3e96de41f8cb1ffdae4467c47;  
+	  		else if ((p/z)==2 && (fo*z)==256) sweepstart = 256'he53cd0663a8bcab10553bbc6244fe51b90ed33c5b344b91d44dd7a34e8a8f9a1;
 			
 		// Extra cases
-		/*else if ((p/z)==4 && (fo*z)==16)
-			sweepstart = 32'b10000111011100101101100000101101;
-		else if ((p/z)==2 && (fo*z)==512)
-			  		sweepstart = 512'hd0bc4002a66bc4751f90eeb78c9be0ca981fec47fd90e8b3fe04987a4c7f85d6d0bc4002a66bc4751f90eeb78c9be0ca981fec47fd90e8b3fe04987a4c7f85d6;*/
+		/*else if ((p/z)==4 && (fo*z)==16) sweepstart = 32'b10000111011100101101100000101101;
+		else if ((p/z)==2 && (fo*z)==512) sweepstart = 512'hd0bc4002a66bc4751f90eeb78c9be0ca981fec47fd90e8b3fe04987a4c7f85d6d0bc4002a66bc4751f90eeb78c9be0ca981fec47fd90e8b3fe04987a4c7f85d6;*/
 		
-		// Dummy case
-		else   
+		`else // Dummy case
 	  		sweepstart = 1'b0;
+	  	`endif
 	end
 
 	// OLD WAY OF DOING 2D SWEEPSTART - CHECK interleaver_array_old.v if any issue occurs with 1D sweepstart

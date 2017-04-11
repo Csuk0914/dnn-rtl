@@ -1,6 +1,8 @@
 // THIS MODULE DEFINES VARIOUS BASIC COMPONENTS TO BE USED IN THE DESIGN
 `timescale 1ns/100ps
 
+//`define SYNCFF //Uncomment this if synchronous reset DFFs are [also] used
+
 // Custom made signed multiplier where input and outputs all have same bit width
 // This is achieved by restricting one of the inputs to [0-1]
 //[todo] Extend to [-1,1]
@@ -316,7 +318,7 @@ endmodule
 
 // This is a parallel register with synchronous reset, i.e. width 1-bit DFFs
 // [TODO] Use this for all DFFs not triggered by cycle_clk, i.e. use for all clk triggered DFFs
-module DFF_syncreset #(
+/*module DFF_syncreset #(
 	parameter width = 16 //No. of DFFs in parallel
 )(
 	input clk,
@@ -330,7 +332,7 @@ module DFF_syncreset #(
 		else
 			q <= d;
 	end
-endmodule
+endmodule*/
 
 
 // This is a serial bank of parallel registers, i.e. depth banks, each bank has width 1-bit async DFFs

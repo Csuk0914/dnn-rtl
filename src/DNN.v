@@ -1,24 +1,21 @@
 // Sparse interleaved neural network
 // Created by Yinan Shao
 // Edits by Sourya Dey
-
 `timescale 1ns/100ps
 
-// Depending on the no. of hidden layers desired, mark only 1 of the following as 1, others as 0
-// Total no. of layers (L) = No. of hidden layers + 2
-`define No_hidden_layer 0
-`define hidden_layer_1 1
-`define hidden_layer_2 0
-// [todo] NEED to include ifdef for conditional compile of hidden layers. Is this one-hot??
+//`define MULTIOUT //Uncomment this if z[L-2]/fi[L-2] > 1. Check tb params for z and fi
 
-module DNN #(
+// Total no. of layers (L) = No. of hidden layers + 2. Define only 1 out of the following. [TODO] Add code for customizable no. of hidden layers
+/*`define No_hidden_layer 0
+`define hidden_layer_1 1
+`define hidden_layer_2 0*/
+
+module DNN #( // Parameter arrays need to be [31:0] for compilation
 	parameter width = 10, //Bit width
 	parameter width_in = 8, //input data width, i.e. no. of bits each input neuron can take in
 	parameter int_bits = 2, //no. of integer bits
 	parameter frac_bits = width-int_bits-1, //no. of fractional part bits
 	parameter L = 3, //Total no. of layers (including input and output)
-	
-	// Parameter arrays need to be [31:0] for compilation
 	
 	// FOR MNIST:
 	/*parameter [31:0] fo [0:L-2] = '{8, 8}, //Fanout of all layers except for output
@@ -26,7 +23,7 @@ module DNN #(
 	parameter [31:0] z [0:L-2]  = '{512, 32}, //Degree of parallelism of all junctions. No. of junctions = L-1
 	parameter [31:0] n [0:L-1] = '{1024, 64, 16}, //No. of neurons in every layer*/
 	
-	// FOR SMALL TEST:
+	// FOR SMALL TEST NETWORK:
 	parameter [31:0]fo[0:L-2] = '{2, 2},
 	parameter [31:0]fi[0:L-2]  = '{8, 8},
 	parameter [31:0]z[0:L-2]  = '{32, 8},
@@ -34,7 +31,6 @@ module DNN #(
 	
 	//parameter eta = `eta, //eta is NOT a parameter any more. See input section for details
 	//parameter lamda = 1, //L2 regularization
-	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
 	parameter maxactL_pos_width = (z[L-2]/fi[L-2]==1) ? 1 : $clog2(z[L-2]/fi[L-2]), //position of maximum neuron every clk cycle
 	parameter cpc =  n[0] * fo[0] / z[0] + 2	//clocks per cycle block = Weights/parallelism. 2 extra needed because FF is 3 stage operation
 	//Same cpc in different junctions is fine, cpc has to be a (power of 2) + 2
@@ -121,8 +117,7 @@ module DNN #(
 		.width(width),
 		.int_bits(int_bits),
 		.frac_bits(frac_bits),
-		.L(L),
-		.cost_type(cost_type)
+		.L(L)
 	) output_layer_block (
 		.clk(clk), .reset(reset), .cycle_index(cycle_index), .cycle_clk(cycle_clk), //input control signals
 		.actL(actL), .spL(spL), .y(y_in), 	//input data flow [Eg: 16b x 1 value (for 1 neuron).] y_in is input entering fist layer. It goes to last layer through a shift register
@@ -150,22 +145,20 @@ module DNN #(
 		end
 		else if (cycle_index>1) begin //1st 2 cycles are garbage
 			stored_maxactL = final_maxactL; //This is the final_maxactL just generated from the new actL values. This line behaves like a DFF
-			/****************** DELETE THIS LINE if z[L-2]/fi[L-2]>1 ************************
-			if (z[L-2]/fi[L-2]>1) begin
+			`ifdef MULTIOUT 
 				//y_out_alln[z[L-2]/fi[L-2]*(cycle_index-2) +: z[L-2]/fi[L-2]-1] = y_out;
 				if (maxactL_singlepos==0) begin
 					stored_maxactL_pos[$clog2(n[L-1])-1:$clog2(z[L-2]/fi[L-2])] = cycle_index-2;
 					stored_maxactL_pos[$clog2(z[L-2]/fi[L-2])-1:0] = maxactL_pos;
 				end //else retain previous value of stored_maxactL_pos
-			end
-			else //if only 1 output neuron gets computed every clk
-			******************** DELETE THIS LINE if z[L-2]/fi[L-2]>1 **********************/
+			`else //if only 1 output neuron gets computed every clk
 				//y_out_alln[cycle_index-2] = y_out;
 				stored_maxactL_pos = (maxactL_singlepos==0) ? (cycle_index-2) : stored_maxactL_pos;
 				/* here maxactL_pos is trivially 0 and carries no information
 				since z[L-2]/fi[L-2] = 1, index of current output neuron = cycle_index-2
 				if condition is true, then current neuron is max value, so store cycle_index-2
-				if condition is false, as usual, retain previous value of stored_maxactL_pos */ 
+				if condition is false, as usual, retain previous value of stored_maxactL_pos */
+			`endif
 		end
 	end
 	

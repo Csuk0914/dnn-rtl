@@ -1,6 +1,9 @@
 // THIS MODULE DEFINES THE 3 DIFFERENT TYPES OF LAYERS - INPUT, HIDDEN AND OUTPUT
 `timescale 1ns/100ps
 
+//`define QUADCOST
+`define XENTCOST
+
 module input_layer_block #(
 	parameter p = 16, //No. of neurons in this input layer
 	parameter n = 8, //No. of neurons in following layer
@@ -538,7 +541,6 @@ module output_layer_block #(
 	parameter int_bits = 5,
 	parameter frac_bits = 10,
 	parameter L = 3,
-	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
 	parameter cpc = p/z+2 //Since z = z_hidden/fi, cpc = p*fi/z_hidden = p/z
 )(
 	input clk,
@@ -645,19 +647,18 @@ module output_layer_block #(
 		.c_set(a_minus_y)
 	);
 
-	generate //Calculate delta, which goes to state machine, from where it goes to DMp
-		if (cost_type==0) begin //quadcost
-			multiplier_set #( //calculate delta by multiplying a_minus_y with sigmoid prime
-				.z(z), 
-				.width(width),
-				.int_bits(int_bits)
-			) L_delta_processor (
-				a_minus_y, spL, delta
-			);
-		end else begin //xentcost
-			assign delta = a_minus_y; //delta is just a minus y
-		end
-	endgenerate
+	//Calculate delta, which goes to state machine, from where it goes to DMp
+	`ifdef QUADCOST
+		multiplier_set #( //calculate delta by multiplying a_minus_y with sigmoid prime
+			.z(z), 
+			.width(width),
+			.int_bits(int_bits)
+		) L_delta_processor (
+			a_minus_y, spL, delta
+		);
+	`elsif XENTCOST //xentcost
+		assign delta = a_minus_y; //delta is just a minus y
+	`endif
 
 
 // Collection choosing MUX

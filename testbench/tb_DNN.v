@@ -1,29 +1,47 @@
-//Small testbench to be used for FPGA synthesis
-//Uses same network config as tb_64x16x4, but everything else is latest like tb_mnist
 `timescale 1ns/100ps
 
-module tb_fpgasynth #(
-	// DNN parameters to be passed
+`define CLOCKPERIOD 10
+`define INITMEMSIZE 2000 //number of elements in gaussian_list
+
+//`define MODELSIM
+`define VIVADO
+
+`define MNIST //Dataset
+`define NIN 784 //Number of inputs AS IN DATASET
+`define NOUT 10 //Number of outputs AS IN DATASET
+`define TC 10000 //Training cases to be considered in 1 epoch
+`define TTC 10*`TC //Total training cases over all epochs
+`define CHECKLAST 1000 //How many last inputs to check for accuracy
+
+/*`define SMALLNET //Dataset
+`define NIN 64 //Number of inputs AS IN DATASET
+`define NOUT 4 //Number of outputs AS IN DATASET
+`define TC 2000 //Training cases to be considered in 1 epoch
+`define TTC 1*`TC //Total training cases over all epochs
+`define CHECKLAST 1000 //How many last inputs to check for accuracy*/
+
+module tb_DNN #(
 	parameter width = 10,
 	parameter width_in = 8,
 	parameter int_bits = 2,
 	parameter frac_bits = width-int_bits-1,
 	parameter L = 3,
-	parameter [31:0]fo[0:L-2] = '{2, 2},
-	parameter [31:0]fi[0:L-2]  = '{8, 8},
-	parameter [31:0]z[0:L-2]  = '{32, 8},
-	parameter [31:0]n[0:L-1] = '{64, 16, 4},
-	parameter Eta = 2.0**(-3), //DO NOT WRITE THIS AS 2**x, that doesn't work
+	parameter Eta = 2.0**(-4) //DO NOT WRITE THIS AS 2**x, it doesn't work without 2.0
 	//parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
-	parameter cost_type = 1, //0 for quadcost, 1 for xentcost
-	// Testbench parameters:
-	parameter training_cases = 2000, //number of cases to consider out of entire MNIST. Should be <= 50000
-	parameter total_training_cases = 1*training_cases, //total number of training cases over all epochs
-	//parameter test_cases = 8,
-	parameter checklast = 1000, //how many previous inputs to compute accuracy from
-	parameter clock_period = 10,
-	parameter cpc =  n[0] * fo[0] / z[0] + 2
 );
+
+`ifdef MNIST
+	parameter [31:0] fo [0:L-2] = '{8, 8}; //Fanout of all layers except for output
+	parameter [31:0] fi [0:L-2]  = '{128, 32}; //Fanin of all layers except for input
+	parameter [31:0] z [0:L-2]  = '{512, 32}; //Degree of parallelism of all junctions. No. of junctions = L-1
+	parameter [31:0] n [0:L-1] = '{1024, 64, 16}; //No. of neurons in every layer
+`elsif SMALLNET
+	parameter [31:0]fo[0:L-2] = '{2, 2};
+	parameter [31:0]fi[0:L-2]  = '{8, 8};
+	parameter [31:0]z[0:L-2]  = '{32, 8};
+	parameter [31:0]n[0:L-1] = '{64, 16, 4};
+`endif
+	localparam cpc =  n[0] * fo[0] / z[0] + 2;
 	
 	////////////////////////////////////////////////////////////////////////////////////
 	// define DNN DUT I/O
@@ -32,7 +50,7 @@ module tb_fpgasynth #(
 	////////////////////////////////////////////////////////////////////////////////////
 	reg clk = 1;
 	reg reset = 1;
-	reg [width-1:0] eta;
+	reg signed [width-1:0] eta;
 	wire [width_in*z[0]/fo[0]-1:0] a_in; //No. of input activations coming into input layer per clock, each having width_in bits
 	wire [z[L-2]/fi[L-2]-1:0] y_in; //No. of ideal outputs coming into input layer per clock
 	wire [z[L-2]/fi[L-2]-1:0] y_out; //ideal output (y_in after going through all layers)
@@ -52,10 +70,9 @@ module tb_fpgasynth #(
 		.fo(fo), 
 		.fi(fi), 
 		.z(z), 
-		.n(n), 
+		.n(n)
 		//.eta(eta), 
 		//.lamda(lamda),
-		.cost_type(cost_type)
 	) DNN (
 		.a_in(a_in),
 		.y_in(y_in), 
@@ -71,7 +88,6 @@ module tb_fpgasynth #(
 	// Set Clock, Cycle Clock, Reset, eta
 	////////////////////////////////////////////////////////////////////////////////////
 	initial begin
-	    //#0 clk=1;
 		//#1 reset = 1;	
 		#81 reset = 0;
 	end
@@ -81,7 +97,7 @@ module tb_fpgasynth #(
 		eta = ~eta + 1; //Make eta negative so that adding eta will actually subtract it, as required for learning
 	end
 
-	always #(clock_period/2) clk = ~clk;
+	always #(`CLOCKPERIOD/2) clk = ~clk;
 	
 	wire cycle_clk;
 	wire [$clog2(cpc)-1:0] cycle_index;
@@ -98,13 +114,13 @@ module tb_fpgasynth #(
 	////////////////////////////////////////////////////////////////////////////////////
 	// Training cases Pre-Processing
 	////////////////////////////////////////////////////////////////////////////////////
-	reg [$clog2(training_cases)-1:0] sel_tc = 0; //MUX select to choose training case each block cycle
+	reg [$clog2(`TC)-1:0] sel_tc = 0; //MUX select to choose training case each block cycle
 	wire [$clog2(cpc-2)-1:0] sel_network; //MUX select to choose which input/output pair to feed to network within a block cycle
 	wire [n[L-1]-1:0] y; //Complete 1b ideal output for 1 training case, i.e. No. of output neurons x 1 x 1
 	wire [width_in*n[0]-1:0] a; //Complete 8b act input for 1 training case, i.e. No. of input neurons x 8 x 1
 
 	assign sel_network = cycle_index[$clog2(cpc-2)-1:0]-2;
-	/* cycle_index goes from 0 to cpc-1, so its 4 LSB go from 0 to cpc-3 then 0 to 1
+	/* cycle_index goes from 0-17, so its 4 LSB go from 0 to cpc-3 then 0 to 1
 	* But nothing happens in the last 2 cycles since pipeline delay is 2
 	* So take values of cycle_index from 0-15 and subtract 2 to make its 4 LSB go from 14-15, then 0-13
 	* Note that the jumbled order isn't important as long as all inputs from 0-15 are fed */
@@ -131,8 +147,8 @@ module tb_fpgasynth #(
 		1 line is one pattern with 10 one-hot binary. Values from 10-15 are set to 0 */
 	////////////////////////////////////////////////////////////////////////////////////
 	
-	reg signed [width-1:0] memJ1 [1999:0]; //1st junction weight memory
-	reg signed [width-1:0] memJ2 [1999:0]; //2nd junction weight memory
+	reg signed [width-1:0] memJ1 [`INITMEMSIZE-1:0]; //1st junction weight memory
+	reg signed [width-1:0] memJ2 [`INITMEMSIZE-1:0]; //2nd junction weight memory
 	
 	/* SIMULATOR NOTES:
 	*	Modelsim can read a input file with spaces and assign it in natural counting order
@@ -142,53 +158,73 @@ module tb_fpgasynth #(
 		Eg: The line abcdefghij when written to an input vector [9:0], will be written as [9]=a, [8]=b, ..., [0]=j
 	*	The Modelsim version was done first, it works and also shows up nicely in the output log files since counting order is natural
 		So we will force the Vivado version to have natural counting order in hardware
-	* SIDE NOTE: Please keep only 1 copy of the data (Gaussian lists and training I/O) in the Verilog folder. Don't create extra for Vivado
-	KEEP 1 OF THE 2 FOLLOWING PORTIONS AND COMMENT OUT THE OTHER ONE */
+	* SIDE NOTE: Please keep only 1 copy of the data (Gaussian lists and training I/O) in the Verilog folder. Don't create extra for Vivado */
 	
-	// MODELSIM 
-	/*reg [width_in-1:0] a_mem[training_cases-1:0][63:0]; //inputs
-	reg y_mem[training_cases-1:0][3:0]; //ideal outputs
-	initial begin
-		$readmemb("./gaussian_list/s136_frc7_int2.dat", memJ1);
-        $readmemb("./gaussian_list/s40_frc7_int2.dat", memJ2);
-        $readmemb("train_idealout_spaced.dat", y_mem);
-        $readmemh("train_input_spaced.dat", a_mem);
-	end*/
-        
-	// VIVADO
-	reg [width_in-1:0] a_mem[training_cases-1:0][0:63]; //flipping only occurs in the final bracket dimension
-	reg y_mem[training_cases-1:0][0:3]; //flipping only occurs in the final bracket dimension
-	initial begin
-		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s10_frc7_int2.dat", memJ1);
-		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s10_frc7_int2.dat", memJ2);
-		$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout_4.dat", y_mem);
-		$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input_64.dat", a_mem);
-	end
-
+	`ifdef MNIST
+		`ifdef MODELSIM
+			reg [width_in-1:0] a_mem[`TC-1:0][`NIN-1:0]; //inputs
+			reg y_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
+			initial begin
+				$readmemb("./gaussian_list/s136_frc7_int2.dat", memJ1);
+				$readmemb("./gaussian_list/s40_frc7_int2.dat", memJ2);
+				$readmemb("train_idealout_spaced.dat", y_mem);
+				$readmemh("train_input_spaced.dat", a_mem);
+			end       
+		`elsif VIVADO
+			reg [width_in-1:0] a_mem[`TC-1:0][0:`NIN-1]; //flipping only occurs in the 784 dimension
+			reg y_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
+			initial begin
+				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s136_frc7_int2.dat", memJ1);
+				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s40_frc7_int2.dat", memJ2);
+				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout.dat", y_mem);
+				$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input.dat", a_mem);
+			end
+		`endif
+	`elsif SMALLNET
+		`ifdef MODELSIM
+			reg [width_in-1:0] a_mem[`TC-1:0][`NIN-1:0]; //inputs
+			reg y_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
+			initial begin
+				$readmemb("./gaussian_list/s10_frc7_int2.dat", memJ1);
+				$readmemb("./gaussian_list/s10_frc7_int2.dat", memJ2);
+				$readmemb("train_idealout_4_spaced.dat", y_mem);
+				$readmemh("train_input_64_spaced.dat", a_mem);
+			end       
+		`elsif VIVADO
+			reg [width_in-1:0] a_mem[`TC-1:0][0:`NIN-1]; //flipping only occurs in the 784 dimension
+			reg y_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
+			initial begin
+				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s10_frc7_int2.dat", memJ1);
+				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s10_frc7_int2.dat", memJ2);
+				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout_4.dat", y_mem);
+				$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input_64.dat", a_mem);
+			end
+		`endif	
+	`endif
 
 	genvar gv_i;	
 	generate for (gv_i = 0; gv_i<n[0]; gv_i = gv_i + 1)
 	begin: pr
-		assign a[width_in*(gv_i+1)-1:width_in*gv_i] = (gv_i<64)? a_mem[sel_tc][gv_i]:0;
+		assign a[width_in*(gv_i+1)-1:width_in*gv_i] = (gv_i<`NIN)? a_mem[sel_tc][gv_i]:0;
 	end
 	endgenerate
 
 	generate for (gv_i = 0; gv_i<n[L-1]; gv_i = gv_i + 1)
 	begin: pp
-		assign y[gv_i] = (gv_i<4)? y_mem[sel_tc][gv_i]:0;
+		assign y[gv_i] = (gv_i<`NOUT)? y_mem[sel_tc][gv_i]:0;
 	end
 	endgenerate
 	////////////////////////////////////////////////////////////////////////////////////
-
-////////////////////////////////////////////////////////////////////////////////////
-// Performance Evaluation Variables
-////////////////////////////////////////////////////////////////////////////////////
+	
+	////////////////////////////////////////////////////////////////////////////////////
+	// Performance Evaluation Variables
+	////////////////////////////////////////////////////////////////////////////////////
 	integer  num_train = 0, //Number of the current training case
 				epoch = 1,
 				q, //loop variable
 				correct, //signals whether current training case is correct or not
 				recent = 0, //counts #correct in last 1000 training cases
-				crt[checklast:0], //stores last 1000 results - each result is either 1 or 0
+				crt[`CHECKLAST:0], //stores last 1000 results - each result is either 1 or 0
 				crt_pt=0, //points to where current training case result will enter. Loops around on reaching 1000
 				total_correct = 0, //Total number of correct accumulated over training cases
 				log_file;
@@ -248,13 +284,13 @@ module tb_fpgasynth #(
 	////////////////////////////////////////////////////////////////////////////////////
 	initial begin
 		log_file = $fopen("results_log.dat"); //Stores a lot of info
-		for(q=0;q<=checklast;q=q+1) crt[q]=0; //initialize all 1000 places to 0
+		for(q=0;q<=`CHECKLAST;q=q+1) crt[q]=0; //initialize all 1000 places to 0
 	end
 
 	always @(posedge cycle_clk) begin
 		#0; //let everything in the circuit finish before starting performance eval
 		num_train = num_train + 1;
-		sel_tc = (sel_tc == training_cases-1)? 0 : sel_tc + 1;
+		sel_tc = (sel_tc == `TC-1)? 0 : sel_tc + 1;
 
 		recent = recent - crt[crt_pt]; //crt[crt_pt] is the value about to be replaced 
 		correct = 1; //temporary placeholder
@@ -264,7 +300,7 @@ module tb_fpgasynth #(
 		end
 		crt[crt_pt] = correct;
 		recent = recent + crt[crt_pt]; //Update recent with value just stored
-		crt_pt = (crt_pt==checklast)? 0 : crt_pt+1;
+		crt_pt = (crt_pt==`CHECKLAST)? 0 : crt_pt+1;
 		total_correct = total_correct + correct;
 		
 		EMS = 0;
@@ -273,7 +309,7 @@ module tb_fpgasynth #(
 		//error_rate <= 0;
 	
 		// Transcript display - basic stats
-		$display("Case number = %0d, correct = %0d, recent_%0d = %0d, EMS = %5f", num_train, correct, checklast, recent, EMS); 
+		$display("Case number = %0d, correct = %0d, recent_%0d = %0d, EMS = %5f", num_train, correct, `CHECKLAST, recent, EMS); 
 
 		// Write to log file - Everything
 		$fdisplay (log_file,"-----------------------------train: %d", num_train);
@@ -299,7 +335,7 @@ module tb_fpgasynth #(
 		//for(q=0; q<z[L-2]; q=q+1) $fwrite (log_file, "\t %1.3f", del_wb1[q]); $fwrite (log_file, "\n");
 		//$fwrite (log_file, "delta_b2:     ");
 		//for(q=z[L-2]; q<z[L-2]+z[L-2]/fi[L-2]; q=q+1) $fwrite (log_file, "\t %1.3f", del_wb1[q]); $fwrite (log_file, "\n");
-		$fdisplay(log_file, "correct = %0d, recent_%4d = %3d, EMS = %5f", correct, checklast, recent, EMS);
+		$fdisplay(log_file, "correct = %0d, recent_%4d = %3d, EMS = %5f", correct, `CHECKLAST, recent, EMS);
 		if (sel_tc == 0) begin
 			$fdisplay(log_file, "\nFINISHED TRAINING EPOCH %0d", epoch);
 			$fdisplay(log_file, "Total Correct = %0d\n", total_correct);
@@ -307,7 +343,7 @@ module tb_fpgasynth #(
 		end
 		
 		// Stop conditions
-		if (num_train==total_training_cases) $stop;
+		if (num_train==`TTC) $stop;
 		// #1000000 $stop;
 	end
 	////////////////////////////////////////////////////////////////////////////////////

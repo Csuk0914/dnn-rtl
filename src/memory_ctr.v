@@ -665,8 +665,8 @@ module act_ctr #(
 endmodule
 
 
-// For the next 2 modules, refer to slide 19 of Sourya_20160629_DRP.pptx
-/*module address_decoder #(
+/* [OLD] For the next 2 modules, refer to slide 19 of Sourya_20160629_DRP.pptx
+module address_decoder #(
 	parameter fo = 2,
 	parameter fi  = 4,
 	parameter p  = 16,
@@ -700,34 +700,7 @@ endmodule
 		assign d_mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] = insert[gv_i]; //This DeMUX feeds Mem gv_i. It's the inverse mapping from weights to memories
 	end
 	endgenerate
-endmodule*/
-
-module address_decoder #(
-	parameter fo = 2,
-	parameter fi  = 4,
-	parameter p  = 16,
-	parameter n  = 8,
-	parameter z  = 8
-)(
-	input [$clog2(p)*z-1:0] memory_index_package, //Neuron from where I should get activation = output of interleaver
-	output [$clog2(p/z)*z-1:0] address_package, //1 address for each AMp and DMp, total of z. Addresses are log(p/z) bits since AMp and DMp have that many elements
-	output [$clog2(z)*z-1:0] mux_sel_package, //control signals for AMp MUXes
-	output [$clog2(z)*z-1:0] d_mux_sel_package //control signals for DMp MUXes
-);
-
-	wire [$clog2(p)-1:0]memory_index[z-1:0];
-
-	genvar gv_i;
-	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
-	begin: address_decoder
-		assign memory_index[gv_i] = memory_index_package[$clog2(p)*(gv_i+1)-1:$clog2(p)*gv_i]; //Unpacking
-		assign address_package[$clog2(p/z)*(gv_i+1)-1:$clog2(p/z)*gv_i] = memory_index[gv_i][$clog2(p)-1:$clog2(z)];
-		assign mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] =  gv_i;
-		assign d_mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] = gv_i;
-	end
-	endgenerate
 endmodule
-
 
 module comparator_set #(
 	parameter z  = 8,
@@ -756,4 +729,30 @@ module comparator_set #(
 				insert = i; //[Eg: In slide 19, which AND gate is chosen]
 		end
 	end
+endmodule*/
+
+module address_decoder #(
+	parameter fo = 2,
+	parameter fi  = 4,
+	parameter p  = 16,
+	parameter n  = 8,
+	parameter z  = 8
+)(
+	input [$clog2(p)*z-1:0] memory_index_package, //Neuron from where I should get activation = output of interleaver
+	output [$clog2(p/z)*z-1:0] address_package, //1 address for each AMp and DMp, total of z. Addresses are log(p/z) bits since AMp and DMp have that many elements
+	output [$clog2(z)*z-1:0] mux_sel_package, //control signals for AMp MUXes
+	output [$clog2(z)*z-1:0] d_mux_sel_package //control signals for DMp MUXes
+);
+
+	wire [$clog2(p)-1:0]memory_index[z-1:0];
+
+	genvar gv_i;
+	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+	begin: address_decoder
+		assign memory_index[gv_i] = memory_index_package[$clog2(p)*(gv_i+1)-1:$clog2(p)*gv_i]; //Unpacking
+		assign address_package[$clog2(p/z)*(gv_i+1)-1:$clog2(p/z)*gv_i] = memory_index[gv_i][$clog2(p)-1:$clog2(z)];
+		assign mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] =  gv_i;
+		assign d_mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] = gv_i;
+	end
+	endgenerate
 endmodule

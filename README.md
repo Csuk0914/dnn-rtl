@@ -31,29 +31,32 @@ bin - Top level binary files (Mahdi)
 
 RUNNING: (Key: [NC] - Network configuration changed only, [BW] - Bit widths changed only, [SIM] - Behavioral Simulation in either Modelsim or Vivado, [SYNTH] - Synthesis in Vivado)
 
-Testbench [SIM]
+tb_DNN.v
 	
-	[General] Make sure correct simulator (Modelsim or Vivado) portion is uncommented in Data import block. If using Vivado, please UNTICK xsim.simulate.log_all_signals in Simulation tab in Simulation Settings in Left Pane
-	[NC] Create new testbench (use tb_mnist as ref)
-	[NC,BW] Change parameters at top
-	[NC] In the Modelsim and Vivado portions in data import, change 784,783,10,9 to nin,nin-1,nout,nout-1 (numbers of input and output neurons)
-	[NC,BW] Change Gaussian file names
+	[General] define: Uncomment used simulator - Modelsim or Vivado. If using Vivado, UNTICK xsim.simulate.log_all_signals in Simulation tab in Simulation Settings in Left Pane
+	[NC] define: Comment out entire chunk of defines for dataset, nin, nout, tc, ttc, checklast, and define new ones
+	[NC,BW] Change eta and other params inside #(). Define new `ifdef cases for network params as required
+	[NC,BW] Add new `ifdef cases for Gaussian file names in data import block
 	
 DNN.v
 
-	[NC] Delete this following line wherever it comes, when applicable: /****************** DELETE THIS LINE if z[L-2]/fi[L-2]>1 ************************
-	[NC,BW][SYNTH] Change parameters at top
+	[NC] define: Uncomment MULTIOUT when applicable
+	[NC,BW][SYNTH] Change parameters inside #(). NOT REQUIRED for SIM ONLY.
 	
+layer_block.v
+
+	[General] define: Uncomment used cost method
+
 memories.v
 
-	[NC][SIM] Search for tb_ (match case) in memories.v and change it to the testbench module name being used, like tb_mnist
-	[SYNTH] Comment out initial blocks and the integer declarations preceding them
+	[SIM] define: Uncomment SIM
+	[General] define: initmemsize should match initmemsize in testbench
 	
 interleavers (Assume interleaver_array unless otherwise noted)
 
-	[NC] Define all sweepstart cases for different p/z and fo*z
+	[NC] define: Uncomment used dataset
 	[NC,BW] If interleaver_drp is used, comment out higher m else if statements inside r_dither and w_dither in case of any issue while running smaller DNNs
-	[SYNTH] Comment out the sweepstart cases not used
+
 	
 sigmoid_sigmoidprime_table.v
 
