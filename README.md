@@ -45,12 +45,16 @@ DNN.v
 	
 layer_block.v
 
-	[General] define: Uncomment used cost method
+	[Cost Function] define: Uncomment used cost method
+
+processor_set.v
+
+	[Eta] define: If Eta is NOT a power of 2 between 2^0 to 2^(-frac_bits), comment out ETA2POWER
 
 memories.v
 
 	[SIM] define: Uncomment SIM
-	[General] define: initmemsize should match initmemsize in testbench
+	[WtBias Initialization] define: initmemsize should match initmemsize in testbench
 	
 interleavers (Assume interleaver_array unless otherwise noted)
 

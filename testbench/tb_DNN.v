@@ -26,7 +26,7 @@ module tb_DNN #(
 	parameter int_bits = 2,
 	parameter frac_bits = width-int_bits-1,
 	parameter L = 3,
-	parameter Eta = 2.0**(-4) //DO NOT WRITE THIS AS 2**x, it doesn't work without 2.0
+	parameter Eta = 2.0**(-4) //Should be a power of 2. Value between 2^(-frac_bits) and 1. DO NOT WRITE THIS AS 2**x, it doesn't work without 2.0
 	//parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
 );
 
@@ -45,12 +45,14 @@ module tb_DNN #(
 	
 	////////////////////////////////////////////////////////////////////////////////////
 	// define DNN DUT I/O
-	// DNN input: clk, reset, eta, a_in, y_in
+	// DNN input: clk, reset, etapos, a_in, y_in
 	// DNN output: y_out, a_out
 	////////////////////////////////////////////////////////////////////////////////////
 	reg clk = 1;
 	reg reset = 1;
-	reg signed [width-1:0] eta;
+	reg [$clog2(frac_bits+2)-1:0] etapos; /*etapos = -log2(Eta)+1. Eg: If Eta=2^-4, etapos=5. etapos=0 is not valid
+	Min allowable value of Eta = 2^(-frac_bits) => Max value of etapos = frac_bits+1, which needs log2(frac_bits+2) bits to store
+	Max allowable value of Eta = 1 => Min value of etapos = 1. So etapos is never 0 */
 	wire [width_in*z[0]/fo[0]-1:0] a_in; //No. of input activations coming into input layer per clock, each having width_in bits
 	wire [z[L-2]/fi[L-2]-1:0] y_in; //No. of ideal outputs coming into input layer per clock
 	wire [z[L-2]/fi[L-2]-1:0] y_out; //ideal output (y_in after going through all layers)
@@ -76,7 +78,7 @@ module tb_DNN #(
 	) DNN (
 		.a_in(a_in),
 		.y_in(y_in), 
-		.eta_in(eta), 
+		.etapos_in(etapos), 
 		.clk(clk),
 		.reset(reset),
 		.y_out(y_out),
@@ -85,16 +87,25 @@ module tb_DNN #(
 	////////////////////////////////////////////////////////////////////////////////////
 
 	////////////////////////////////////////////////////////////////////////////////////
-	// Set Clock, Cycle Clock, Reset, eta
+	// Set Clock, Cycle Clock, Reset, etapos
 	////////////////////////////////////////////////////////////////////////////////////
 	initial begin
 		//#1 reset = 1;	
 		#81 reset = 0;
 	end
 
+	// Get etapos from Eta
+	integer etaloop;
+	reg found = 0;
+	reg [width-1:0] eta;
 	initial begin
 		eta = Eta * (2 ** frac_bits); //convert the Eta to fix point
-		eta = ~eta + 1; //Make eta negative so that adding eta will actually subtract it, as required for learning
+		for (etaloop=0; etaloop<=frac_bits; etaloop=etaloop+1) begin
+			if (eta[frac_bits-etaloop] && !found) begin
+				etapos = etaloop+1;
+				found = 1;
+			end
+		end
 	end
 
 	always #(`CLOCKPERIOD/2) clk = ~clk;

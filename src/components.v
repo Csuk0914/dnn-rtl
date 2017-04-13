@@ -17,14 +17,18 @@ module multiplier #(
 );
 	
 	wire signed [2*width-1:0] z_raw; //1,10,21
+	wire signed [width-1:0] z_temp; //1,5,10. Holds truncated output before rounding
 	//assign z_raw = (a[width-2:0] - a[width-1] * 2**(width-1)) * (b[width-2:0] - b[width-1] * 2**(width-1)); //Subtraction converts signed representation to actual number
 	assign z_raw = a*b;
-	assign z = (z_raw[2*width-1]==0 && z_raw[2*width-2:2*width-int_bits-2]!=0) ? {1'b0, {(width-1) {1'b1}}} : //positive overflow => set to max pos value
-		(z_raw[2*width-1]==1 && z_raw[2*width-2:2*width-int_bits-2]!={(int_bits+1) {1'b1}})? {1'b1, {(width-1){1'b0}}} : //negative overflow => set to max neg value
-		{z_raw[2*width-1],z_raw[2*width-3-int_bits:width-int_bits-1]} + z_raw[width-int_bits-2]; //normal case. The + is used for rounding
+	assign z_temp = (z_raw[2*width-1]==0 && z_raw[2*width-2:2*width-int_bits-2]!=0) ? {1'b0, {(width-1){1'b1}}} : //positive overflow => set to max pos value
+		(z_raw[2*width-1]==1 && z_raw[2*width-2:2*width-int_bits-2]!={(int_bits+1){1'b1}}) ? {1'b1,{(width-1){1'b0}}} : //negative overflow => set to max neg value
+		{z_raw[2*width-1],z_raw[2*width-3-int_bits:width-int_bits-1]}; //no overflow truncated case
 	/* To understand this, use the fact that MSB of z_raw = 2*width-1 and int_bits+1 from MSB are discarded because multiplier is only used for w*a and w*d.
-	   Both a and d are <1, so we only need int_bits LSB [Eg: bits 24-20] of the integer part, since int_bits+1 MSB [Eg: bits 30-25] of integer part are always 000000 (pos) or 111111 (neg)
-	   We also take MSB = sign and frac_bits MSB of frac part [Eg: Bits 19-10]. We discard frac_bits LSB [Eg: Bits 9-0] after using bit[9] to round */
+			   Both a and d are <1, so we only need int_bits LSB [Eg: bits 24-20] of the integer part, since int_bits+1 MSB [Eg: bits 30-25] of integer part are always 000000 (pos) or 111111 (neg)
+			   We also take MSB = sign and frac_bits MSB of frac part [Eg: Bits 19-10]. We discard frac_bits LSB [Eg: Bits 9-0] after using bit[9] to round */
+	assign z = (z_raw[width-int_bits-2]==0 || z_temp=={1'b0,{(width-1){1'b1}}}) ? //check MSB of left-out frac part in z_raw. If that is 0, z=z_temp.
+		// If that is 1, but z_temp is max positive value, then also z=z_temp (because we don't want overflow)
+		z_temp : z_temp+1; //otherwise round up z to z_temp+1, like 0.5 becomes 1
 endmodule
 
 

@@ -1,6 +1,8 @@
 // This file contains all processor sets - feedforward, backpropagation, update
 `timescale 1ns/100ps
 
+`define ETA2POWER //Comment out if eta is NOT a power of 2. Can vary from 2^0=1 to 2^(-frac_bits)
+
 //This module computes actn, i.e. z activations for the succeeding layer
 //Multiplication aw = act*wt happens here, the remaining additions and looking up activation function is done in the submodule sigmoid_function
 module FF_processor_set #(
@@ -217,7 +219,7 @@ module UP_processor_set #(
 	//parameter lamda = 1
 )(
 	// Note that updates are done for z weights in a junction and n neurons in succeeding layer
-	input signed [width-1:0] eta,
+	input [$clog2(frac_bits+2)-1:0] etapos,
 	inout [width*z/fi-1:0] delta_package, //deln
 	input [width*z-1:0] w_package, //Existing weights whose values will be updated
 	input [width*z/fi-1:0] b_package, //Existing bias of n neurons whose values will be updated
@@ -240,6 +242,8 @@ module UP_processor_set #(
 	wire signed [width-1:0] w_UP [z-1:0];
 	
 	wire signed [width-1:0] delta_b [z/fi-1:0];
+	wire signed [width-1:0] delta_neg [z/fi-1:0]; //Stores negative values of deltas
+	wire signed [width-1:0] delta_b_temp [z/fi-1:0]; //Temporarily stores values of delta_b
 	wire signed [width-1:0] b_new [z/fi-1:0];
 	wire signed [width-1:0] b_UP [z/fi-1:0];
 
@@ -262,15 +266,17 @@ module UP_processor_set #(
 	endgenerate
 	// Finished unpacking
 
-	// generate for (gv_i = 0; gv_i<z/fi; gv_i = gv_i + 1)
-	// begin : mul_eta
-	// 	multiplier mul_eta(delta[gv_i], eta, delta_b[gv_i]);
-	// end
-	// endgenerate
-
 	generate for (gv_i = 0; gv_i<z/fi; gv_i = gv_i + 1)
 	begin : all_update_set
-		multiplier #(.width(width),.int_bits(int_bits)) mul_eta(delta[gv_i], eta, delta_b[gv_i]);
+		`ifdef ETA2POWER
+			assign delta_neg[gv_i] = 0 - delta[gv_i];
+			// Nothing should happen early on when etapos=0 because regular operation hasn't started yet
+			assign delta_b_temp[gv_i] = (etapos==0) ? 0 : delta_neg[gv_i] >>> (etapos-1);
+			assign delta_b[gv_i] = (etapos==0) ? 0 : (etapos==1) ? delta_b_temp[gv_i] : // If etapos=1, the actual Eta=1, so there is no shift, and hence no rounding
+			delta_b_temp[gv_i] + delta_neg[gv_i][etapos-2]; //Otherwise round, i.e. add 1 if MSB of shifted out portion = 1
+		`else
+			multiplier #(.width(width),.int_bits(int_bits)) mul_eta(delta[gv_i], eta, delta_b[gv_i]);
+		`endif
 		adder #(.width(width)) update_b (b[gv_i], delta_b[gv_i], b_new[gv_i]);
 	
 		/* lamda factor controlled update of bias (here lamda is NOT used for regularization)

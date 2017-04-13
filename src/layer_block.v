@@ -24,7 +24,7 @@ module input_layer_block #(
 	input reset,
 	input [$clog2(cpc)-1:0] cycle_index, //Index of clock cycle
 	input cycle_clk, //1 cycle_clk = cpc clks
-	input signed [width-1:0] eta, //Learning rate
+	input [$clog2(frac_bits+2)-1:0] etapos, //See tb_DNN for description
 	input [width_in*z/fo-1:0] act0, //No. of activations coming per clock from external environment, each is width_in bits. z weights processed in 1 cycle, fo weights = 1 activation, hence z/fo
 	input [width*z/fi-1:0] d1, //No. of deln values coming per clock from next layer, each is width bits. z weights processed in 1 cycle, fi weights = 1 delta, hence z/fi
 	output [width*z/fi-1:0] act1, //No. of actn values computed per clock and going to next layer, each is width bits. z weights processed in 1 cycle, fi weights = 1 act out, hence z/fi
@@ -195,7 +195,7 @@ module input_layer_block #(
 		.int_bits(int_bits),
 		.frac_bits(frac_bits)
 	) L0_UP_processor (
-		.eta(eta), 
+		.etapos(etapos), 
 		.delta_package(d1),
 		.w_package(w),
 		.b_package(b),
@@ -249,7 +249,7 @@ module hidden_layer_block #(
 	input reset,
 	input [$clog2(cpc)-1:0] cycle_index,
 	input cycle_clk,
-	input signed [width-1:0] eta, //Learning rate
+	input [$clog2(frac_bits+2)-1:0] etapos, //Learning rate
 	input [width*z/fo-1:0] actin, //from prev
 	input [width*z/fo-1:0] spin, //from prev
 	input [width*z/fi-1:0] din, //from next
@@ -458,7 +458,7 @@ module hidden_layer_block #(
 		.int_bits(int_bits),
 		.frac_bits(frac_bits)
 	) UP_processor (
-		.eta(eta), 
+		.etapos(etapos), 
 		.delta_package(din),
 		.w_package(w),
 		.b_package(b),

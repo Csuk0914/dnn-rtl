@@ -38,9 +38,9 @@ module DNN #( // Parameter arrays need to be [31:0] for compilation
 )(
 	input [width_in*z[0]/fo[0]-1:0] a_in, //Load activations from outside. z[0] weights processed together in first junction => z[0]/fo[0] activations together
 	input [z[L-2]/fi[L-2]-1:0] y_in, //Load ideal outputs from outside. z[L-2] weights processed together in last junction => z[L-2]/fi[L-2] ideal outputs together, each is 1b 
-	input signed [width-1:0] eta_in, //learning rate
-	// Note that eta is an input, so each training sample can have its own eta. However, all the LAYERS HAVE THE SAME eta for a particular sample
-	// By making eta an input, the problem of random weight updates after reset is solved, because each eta is introduced with input data
+	input [$clog2(frac_bits+2)-1:0] etapos_in, //see tb_DNN for description
+	// Note that etapos is an input, so each training sample can have its own etapos. However, all the LAYERS HAVE THE SAME etapos for a particular sample
+	// By making etapos an input, the problem of random weight updates after reset is solved, because each etapos is introduced with input data
 	input clk,
 	input reset, //active high
 	output [z[L-2]/fi[L-2]-1:0] y_out, //ideal output (y_in after going through all layers) only for the current z neurons (UNLIKE a_out_alln)
@@ -59,7 +59,7 @@ module DNN #( // Parameter arrays need to be [31:0] for compilation
 	So these signals remain same regardless of no. of hidden layers */
 	wire [width*z[0]/fi[0]-1:0] act1, sp1, d1; //z[0]/fi[0] is the no. of neurons processed in 1 cycle at the input of the black box, i.e. 1st hidden layer
 	wire [width*z[L-2]/fi[L-2]-1:0] actL, spL, dL; //z[L-2]/fi[L-2] is the no. of neurons processed in 1 cycle in the last layer, i.e. output of the black box
-	wire signed [width-1:0] eta1, eta2; //eta is same for all layers, but timestamps are different. eta1 is a delayed version of eta2, see below
+	wire [$clog2(frac_bits+2)-1:0] etapos1, etapos2; //etapos is same for all layers, but timestamps are different. etapos1 is a delayed version of etapos2, see below
 	
 	cycle_block_counter #(
 		.cpc(cpc)
@@ -87,7 +87,7 @@ module DNN #( // Parameter arrays need to be [31:0] for compilation
 		.frac_bits(frac_bits),
 		.L(L)
 	) input_layer_block (
-		.clk(clk), .reset(reset), .cycle_index(cycle_index), .cycle_clk(cycle_clk), .eta(eta1), //input control signals
+		.clk(clk), .reset(reset), .cycle_index(cycle_index), .cycle_clk(cycle_clk), .etapos(etapos1), //input control signals
 		.act0(a_in), .d1(d1), //input data flow: a_in from outside, d1 from next layer [Eg: d1 is 16b x 2 values since 2 neurons from next layer send it. Basically deln]
 		.act1(act1), .sp1(sp1) //output data flow: act1 and sp1 to next layer [Eg: each is 16b x 2 values,since 2 neurons in the next layer get processed at a time. Basically actn]
 	);
@@ -106,7 +106,7 @@ module DNN #( // Parameter arrays need to be [31:0] for compilation
 		.L(L), 
 		.h(1) //index of hidden layer
 	) hidden_layer_block_1 (
-		.clk(clk), .reset(reset), .cycle_index(cycle_index), .cycle_clk(cycle_clk),  .eta(eta2), //input control signals
+		.clk(clk), .reset(reset), .cycle_index(cycle_index), .cycle_clk(cycle_clk),  .etapos(etapos2), //input control signals
 		.actin(act1), .spin(sp1), .din(dL), //input data flow
 		.actout(actL), .spout(spL), .dout(d1) //output data flow
 	);
@@ -163,24 +163,24 @@ module DNN #( // Parameter arrays need to be [31:0] for compilation
 	end
 	
 
-//eta shift register
+//etapos shift register
 	shift_reg #( //2nd junction gets updated first - L block cycles after input is fed
 		.width(width), 
 		.depth(L)
-	) eta_SR1 (
+	) etapos_SR1 (
 		.clk(cycle_clk), 
 		.reset(reset), 
-		.data_in(eta_in), 
-		.data_out(eta2));
+		.data_in(etapos_in), 
+		.data_out(etapos2));
 	
-	shift_reg #( //1st junction gets updated 1 block cycle after 2nd (using same eta)
+	shift_reg #( //1st junction gets updated 1 block cycle after 2nd (using same etapos)
 		.width(width), 
 		.depth(1)
-	) eta_SR2 (
+	) etapos_SR2 (
 		.clk(cycle_clk), 
 		.reset(reset), 
-		.data_in(eta2), 
-		.data_out(eta1));	
+		.data_in(etapos2), 
+		.data_out(etapos1));	
 endmodule
 
 /*integer cycle = 0;
