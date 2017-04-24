@@ -3,8 +3,8 @@
 `define CLOCKPERIOD 10
 `define INITMEMSIZE 2000 //number of elements in gaussian_list
 
-//`define MODELSIM
-`define VIVADO
+`define MODELSIM
+//`define VIVADO
 
 `define MNIST //Dataset
 `define NIN 784 //Number of inputs AS IN DATASET
@@ -76,13 +76,13 @@ module tb_DNN #(
 		//.eta(eta), 
 		//.lamda(lamda),
 	) DNN (
-		.a_in(a_in),
-		.y_in(y_in), 
-		.etapos_in(etapos), 
+		.act0(a_in),
+		.ans0(y_in), 
+		.etapos0(etapos), 
 		.clk(clk),
 		.reset(reset),
-		.y_out(y_out),
-		.a_out_alln(a_out)
+		.ansL(y_out),
+		.actL_alln(a_out)
 	);
 	////////////////////////////////////////////////////////////////////////////////////
 
@@ -277,7 +277,7 @@ module tb_DNN #(
 			end
 		end
 		if (cycle_index>1) begin //Actual output, ideal output, delta
-			net_a_out[cycle_index-2] = DNN.actL/2.0**frac_bits;
+			net_a_out[cycle_index-2] = DNN.actL1/2.0**frac_bits;
 			net_y_out[cycle_index-2] = y_out; //Division is not required because it is not in bit form
 			// spL[cycle_index-2] = DNN.output_layer_block.spL/2.0**frac_bits;
 			// The next 2 values occur as packed inside src (which can't be signed), so we need to separate 1 unsigned value
