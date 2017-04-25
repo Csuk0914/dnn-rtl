@@ -88,8 +88,8 @@ module DNN #( // Parameter arrays need to be [31:0] for compilation
 		.L(L)
 	) input_layer_block (
 		.clk(clk), .reset(reset), .cycle_index(cycle_index), .cycle_clk(cycle_clk), .etapos(etapos1), //input control signals
-		.act0(act0), .d1(del1), //input data flow: act0 from outside, del1 from next layer [Eg: del1 is 16b x 2 values since 2 neurons from next layer send it. Basically deln]
-		.act1(act1), .sp1(adot1) //output data flow: act1 and adot1 to next layer [Eg: each is 16b x 2 values,since 2 neurons in the next layer get processed at a time. Basically actn]
+		.act_in(act0), .del_in(del1), //input data flow: act0 from outside, del1 from next layer [Eg: del1 is 16b x 2 values since 2 neurons from next layer send it. Basically deln]
+		.act_out(act1), .adot_out(adot1) //output data flow: act1 and adot1 to next layer [Eg: each is 16b x 2 values,since 2 neurons in the next layer get processed at a time. Basically actn]
 	);
 
 	hidden_layer_block #(
@@ -107,8 +107,8 @@ module DNN #( // Parameter arrays need to be [31:0] for compilation
 		.h(1) //index of hidden layer
 	) hidden_layer_block_1 (
 		.clk(clk), .reset(reset), .cycle_index(cycle_index), .cycle_clk(cycle_clk),  .etapos(etaposL1), //input control signals
-		.actin(act1), .spin(adot1), .din(delL1), //input data flow
-		.actout(actL1), .spout(adotL1), .dout(del1) //output data flow
+		.act_in(act1), .adot_in(adot1), .del_in(delL1), //input data flow
+		.act_out(actL1), .adot_out(adotL1), .del_out(del1) //output data flow
 	);
 	
 	output_layer_block #(
@@ -120,8 +120,8 @@ module DNN #( // Parameter arrays need to be [31:0] for compilation
 		.L(L)
 	) output_layer_block (
 		.clk(clk), .reset(reset), .cycle_index(cycle_index), .cycle_clk(cycle_clk), //input control signals
-		.actL(actL1), .spL(adotL1), .y(ans0), 	//input data flow [Eg: 16b x 1 value (for 1 neuron).] ans0 is input entering fist layer. It goes to last layer through a shift register
-		.deltaL(delL1), .yL(ansL) //output data flow. delL1 goes to previous hidden layer, yL goes outside
+		.act_in(actL1), .adot_in(adotL1), .ans_in(ans0), 	//input data flow [Eg: 16b x 1 value (for 1 neuron).] ans0 is input entering fist layer. It goes to last layer through a shift register
+		.del_out(delL1), .ans_out(ansL) //output data flow. delL1 goes to previous hidden layer, yL goes outside
 	);
 
 	// Max act logic

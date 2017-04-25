@@ -1,5 +1,33 @@
 `timescale 1ns/100ps
 
+/****** Utility modules *****/
+
+module address_decoder #(
+	parameter fo = 2,
+	parameter fi  = 4,
+	parameter p  = 16,
+	parameter n  = 8,
+	parameter z  = 8
+)(
+	input [$clog2(p)*z-1:0] memory_index_package, //Neuron from where I should get activation = output of interleaver
+	output [$clog2(p/z)*z-1:0] address_package, //1 address for each AMp and DMp, total of z. Addresses are log(p/z) bits since AMp and DMp have that many elements
+	output [$clog2(z)*z-1:0] mux_sel_package, //control signals for AMp MUXes
+	output [$clog2(z)*z-1:0] d_mux_sel_package //control signals for DMp MUXes
+);
+
+	wire [$clog2(p)-1:0]memory_index[z-1:0];
+
+	genvar gv_i;
+	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+	begin: address_decoder
+		assign memory_index[gv_i] = memory_index_package[$clog2(p)*(gv_i+1)-1:$clog2(p)*gv_i]; //Unpacking
+		assign address_package[$clog2(p/z)*(gv_i+1)-1:$clog2(p/z)*gv_i] = memory_index[gv_i][$clog2(p)-1:$clog2(z)];
+		assign mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] =  gv_i;
+		assign d_mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] = gv_i;
+	end
+	endgenerate
+endmodule
+
 module w_mem_ctr #( //Controller for weight and bias memories
 	parameter p = 16,
 	parameter n = 8,
@@ -37,212 +65,6 @@ module w_mem_ctr #( //Controller for weight and bias memories
 		.q(w_addr)
 	); //Because whatever entry we read from all the WMs, same entries are updated 1 cycle later
 endmodule
-
-
-module output_layer_state_machine #( //This is a state machine, so it controls last layer by giving all memory and data control signals
-	parameter z = 1,
-	parameter p = 4, //Number of neurons in last layer
-	parameter fi = 2,
-	parameter L = 3,
-	parameter width = 16,
-	parameter cpc = p/z*fi+2
-	//There is no param for collection because delta memory always has 2 collections in output layer. Each collection is a bunch of z memories, each of size p*fo/z
-)(
-	input clk,
-	input reset,
-	input [$clog2(cpc)-1:0] cycle_index, //This is used for reading in cycles 0,...,cpc-3
-	input cycle_clk, //1 cycle_clk = cpc clks
-	input [width*z-1:0] data_in, //delta, after it finishes computation from cost terms
-	output [2*z*$clog2(p/z)-1:0] addr_package, //lump all addresses together: collections * mem/collection * addr_bits/mem
-	// Note that these addresses are for AM, so they are log(p/z) bits
-	output [2*z-1:0] we_package,
-	output [2*z*width-1:0] data_in_mem_package,
-	output r_pt //selects 1 collection. 1b because no. of DM collections is always 2
-);
-
-	wire actual_coll_wpt, initial_coll_wpt; //1b because no. of DM collections is always 2
-	//initial_coll_wpt is collection which will be written in this cycle_clk (cost collection). actual_coll_wpt is same thing, delayed by 1-2 clocks because write does not start until clk 2.
-	wire [$clog2(cpc)-1:0] cycle_index_delay; //Delayed version of cycle_index by 2 clocks. Used for writing in cycles 2,...,cpc-1
-	
-	// Unpack all collections together 1D array into 2D array, with 1 dimension exclusively for collection
-	// Note that the other dimension still packs stuff for all z memories in a collection
-	wire [z-1:0] we[1:0];
-	wire [z*$clog2(p/z)-1:0] addr[1:0];
-	wire [z*width-1:0] data_in_mem[1:0];
-	
-	genvar gv_i, gv_j;
-	generate for (gv_i = 0; gv_i<2; gv_i = gv_i + 1)
-	begin: package_collection
-		assign data_in_mem_package[width*z*(gv_i+1)-1:width*z*gv_i] = data_in_mem[gv_i];
-		assign addr_package[$clog2(p/z)*z*(gv_i+1)-1:$clog2(p/z)*z*gv_i] = addr[gv_i];
-		assign we_package[z*(gv_i+1)-1:z*gv_i] = we[gv_i];
-	end
-	endgenerate
-	// Done unpack
-
-	generate for (gv_i = 0; gv_i<2; gv_i = gv_i + 1)
-	begin: data_collections
-		assign data_in_mem[gv_i] = data_in; //assign input data to memories in both collections, later mux will select 1
-	end
-	endgenerate
-
-	// Generate write enables
-	generate for (gv_i = 0; gv_i<2; gv_i = gv_i + 1)
-	begin: enable_set
-		for (gv_j = 0; gv_j<z; gv_j = gv_j + 1)
-		begin: enable
-			assign we[gv_i][gv_j] = actual_coll_wpt==gv_i && cycle_index>1? ~reset : 0; //1st cycle is only for read. Write starting from 2nd cycle
-			assign addr[gv_i][$clog2(p/z)*(gv_j+1)-1:$clog2(p/z)*gv_j] = 
-				actual_coll_wpt==gv_i ? cycle_index_delay[$clog2(p/z)-1:0] : cycle_index[$clog2(p/z)-1:0];
-			//If actual_coll_wpt equals collection ID (0 or 1), then memory is being written. Write in cycles 2,3,...,cpc-1. Otherwise memory is being read. Read in cycles 0,1,...,cpc-3
-		end
-	end
-	endgenerate
-
-	counter #(.max(2), //Counter for DM collections. After every cpc clocks (i.e. 1 cycle_clk), changes from 0->1 or 1->0
-			.ini(0)) delta_r_pt
-			(cycle_clk, reset, initial_coll_wpt);
-	// Note that counter output is initial_coll_wpt, which initially points to collection to be written into
-
-	DFF #(
-		.width(1)
-	) dff_pointer (
-		.clk(clk),
-		.reset(reset),
-		.d(initial_coll_wpt),
-		.q(actual_coll_wpt)
-	); //1 DFF is enough because mem remains idle. 2 is also fine
-	assign r_pt = ~initial_coll_wpt; //Read pointer points to the other collection, form where I'm reading values and computing BP for prev layer
-
-	shift_reg #(
-		.width($clog2(cpc)), 
-		.depth(2)
-	) cycle_index_reg (
-		.clk(clk),
-		.reset(reset),
-		.data_in(cycle_index),
-		.data_out(cycle_index_delay)
-	);
-endmodule
-
-
-module hidden_layer_state_machine #( // This is state machinw, so it will input data and output all mem data and control signals, i.e. for AMp, AMn, DMp, DMn
-	parameter fo = 2,
-	parameter fi  = 4,
-	parameter p  = 8,
-	parameter n  = 4,
-	parameter z  = 4,
-	parameter L = 3,
-	parameter h = 1, //Index. Layer after input has h = 1, then 2 and so on
-	parameter cpc = p/z*fo+2,
-	parameter width = 16,
-	parameter collection = 2*(L-h) - 1 //No. of AM and SM collections (SM means sigmoid prime memory)
-	// Note that no. of DM collections is always 2
-)(
-	input clk,
-	input reset,
-	input [$clog2(cpc)-1:0] cycle_index,
-	input cycle_clk,
-	
-	input [width*z/fo-1:0] act_data_in, //z weights processed together and since fo weights = 1 neuron, z/fo activations processed together
-	input [width*z/fo-1:0] sp_data_in, //Same as act
-	output [collection*z*$clog2(p/z)-1:0] act_addr_package, //AMp collections, each has z AMs, each AM has p/z entries, so total address bits = collection*z*log(p/z)
-	output [collection*z-1:0] act_we_package, //Each AM has 1 we
-	output [collection*z*width-1:0] act_data_in_mem, //Output data from a particular cell of all AMs
-	output [collection*z*width-1:0] sp_data_in_mem, //Each read out datum from AM must have associated sp
-	// For following DM parameters, replace collection with 2. Also, DM is dual port, so we need 2 addresses and 2 write enables
-	output [2*z*$clog2(p/z)-1:0] d_addrA_package, //DMp collections
-	output [2*z-1:0] d_weA_package,
-	output [2*z*$clog2(p/z)-1:0] d_addrB_package,
-	output [2*z-1:0] d_weB_package,
-	output [2*z*width-1:0] d_mem_inB, //Data to be written into DM port B
-	
-	output [$clog2(z)*z-1:0] actual_mux_sel, //Goes to AMp, SMp. z MUXes, each of size z, i.e. log(z) select bits
-	output [$clog2(z)*z-1:0] actual_d_mux_sel,	//Goes to DMp. When writing back to DMp, we need to reverse permutation. These are also z MUXes, each of size z, i.e. log(z) select bits
-	
-	//Reads are done for FF and UP (i.e. AMs). Following pointers are for reading 1 out of 2(L-h)-1 collections
-	output [$clog2(collection)-1:0] actual_rFF_pt, //goes to FF
-	output [$clog2(collection)-1:0] actual_rUP_pt, //goes to UP
-	
-	//Both read and write is done for BP (i.e. DMs). Following pointers are for reading/writing from 1 out of 2 collections (that's why they are only 1 bit)
-	output d_r_pt, //choose collection from which read is done for preivous BP. Negation of this will be for write.
-	output [$clog2(cpc)-1:0] cycle_index_delay
-);	
-
-	wire [$clog2(p)*z-1:0] memory_index; //Output of z interleavers. Points to all z neurons in p layer from which activations are to be taken for FF
-	wire [$clog2(p/z)*z-1:0] r_address_raw; //z read addresses from all AMp for FF and UP
-	//Note that same mem adresses are used for FF collection and UP collection, just because they are different collections, they need different r_pt values
-	wire [$clog2(z)*z-1:0] initial_mux_sel, initial_d_mux_sel; //z MUXes, each z-to-1, i.e. log(z) select bits
-	wire [$clog2(collection)-1:0] initial_rFF_pt, initial_rUP_pt; //AM collections used for FF and UP
-
-	// Set of z interleaver blocks. Takes cycle index as input, computes interleaved output
-	interleaver_set #(
-		.fo(fo), 
-	 	.fi(fi), 
-	 	.p(p), 
-	 	.n(n), 
-	 	.z(z)
-		//.sweepstart(256'b1110010100111100110100000110011000111010100010111100101010110001000001010101001110111011110001100010010001001111111001010001101110010000111011010011001111000101101100110100010010111001000111010100010011011101011110100011010011101000101010001111100110100001)
-	) interleaver (
-		.cycle_index(cycle_index[$clog2(cpc-2)-1:0]), //if cpc = 3, then $clog2(cpc-2)-1 = -1. For Verilog, a[-1:0] is a syntax error. So cpc must be > 3
-		.reset(reset),
-		.memory_index_package(memory_index)
-	);
-
-	address_decoder #(
-		.fo(fo), 
-	 	.fi(fi), 
-	 	.p(p), 
-	 	.n(n), 
-	 	.z(z)
-	) address_decoder (
-		.memory_index_package(memory_index),
-		.address_package(r_address_raw),
-		.mux_sel_package(initial_mux_sel),
-		.d_mux_sel_package(initial_d_mux_sel)
-	);
-
-	act_sp_ctr #(
-		.fo(fo), 
-		.fi(fi), 
-		.p(p), 
-		.n(n), 
-		.z(z), 
-		.L(L), 
-		.h(h),
-		.cpc(cpc), 
-		.width(width), 
-		.collection(collection)
-	) act_sp_ctr (
-		.clk(clk),
-		.reset(reset),
-		.cycle_clk(cycle_clk),
-		.cycle_index(cycle_index),
-		.r_address_raw(r_address_raw),
-		.act_data_in(act_data_in),
-		.sp_data_in(sp_data_in),
-		.act_addr_package(act_addr_package),
-		.act_we_package(act_we_package),
-		.act_data_in_mem(act_data_in_mem),
-		.sp_data_in_mem(sp_data_in_mem), 
-		.d_addrA_package(d_addrA_package),
-		.d_weA_package(d_weA_package),
-		.d_addrB_package(d_addrB_package),
-		.d_weB_package(d_weB_package),
-		.d_mem_inB(d_mem_inB), 
-		.rFF_pt(initial_rFF_pt),
-		.rUP_pt(initial_rUP_pt),
-		.d_rBP_pt(d_r_pt),
-		.cycle_index_d(cycle_index_delay)
-	);
-
-	//DFFs used to delay control signals one clock, since memory needs 1 cycle to operate
-	DFF #(.width($clog2(z)*z)) DFF_mux_sel (.clk(clk), .reset(reset), .d(initial_mux_sel), .q(actual_mux_sel));	
-	DFF #(.width($clog2(z)*z)) DFF_d_mux_sel (.clk(clk), .reset(reset), .d(initial_d_mux_sel), .q(actual_d_mux_sel));	
-	DFF #(.width($clog2(collection))) DFF_rFF_pt (.clk(clk), .reset(reset), .d(initial_rFF_pt), .q(actual_rFF_pt));
-	DFF #(.width($clog2(collection))) DFF_rUP_pt (.clk(clk), .reset(reset), .d(initial_rUP_pt), .q(actual_rUP_pt));
-endmodule
-
 
 module act_sp_ctr #(
 	parameter fo = 2,
@@ -456,96 +278,7 @@ module act_sp_ctr #(
 	DFF #(.width($clog2(cpc))) DFF_cycle_index (.clk(clk), .reset(reset), .d(cycle_index), .q(cycle_index_d));
 endmodule
 
-
-// first_layer_state_machine is a subset of hidden_layer_state_machine, without DMs
-module input_layer_state_machine #(
-	parameter fo = 2,
-	parameter fi  = 4,
-	parameter p  = 16,
-	parameter n  = 8,
-	parameter z  = 8,
-	parameter L = 3,
-	parameter cpc = p/z*fo+2,
-	parameter width = 1, //width of input data
-	parameter collection = 2*L - 1
-)(
-	input clk,
-	input reset,
-	input [$clog2(cpc)-1:0] cycle_index,
-	input cycle_clk,
-	input [width*z/fo-1:0] data_in,
-	output [collection*z*$clog2(p/z)-1:0] act_addr_package,
-	output [collection*z-1:0] act_we_package,
-	output [$clog2(z)*z-1:0] actual_mux_sel,
-	output [collection*z*width-1:0] data_in_mem,
-	output [$clog2(collection)-1:0] actual_rFF_pt,
-	output [$clog2(collection)-1:0] actual_rUP_pt
-);
-
-	wire [$clog2(p)*z-1:0] memory_index;
-	wire [$clog2(p/z)*z-1:0] act_addr;
-	wire [$clog2(p/z)*z-1:0] r_address_raw;
-	wire [$clog2(z)*z-1:0] initial_mux_sel;
-	wire [$clog2(collection)-1:0] initial_rFF_pt, initial_rUP_pt;
-
-	interleaver_set #(
-		.fo(fo), 
-	 	.fi(fi), 
-	 	.p(p), 
-	 	.n(n), 
-	 	.z(z)
-		//.sweepstart(4096'hd0bc4002a66bc4751f90eeb78c9be0ca981fec47fd90e8b3fe04987a4c7f85d6a8c230af9b2bf8790c022274174bfbf0594e01ff2af007e00aacfbf99ad76093a54c24481c877e32d5f594bbb5da4b74592a287f7d62d18597be33d1e48e9e436303bdac2f4179549e7b422130a0cac25db4fadcc7f294c4952483db10bd3a5d728f85cb5dcdc8d991f919c9c74a1b8204ca6f99153e55037710af5076f148ad63c9460896e3e7f0b1ecd529796b3d65434207f94023e7454c279ec9e7b9d875f6b310c1cb7836375b3d1228f17627eeda16913b081ccba6647693f50cf9a19a670a4da6822fa607cda8d592900ab83ee9f4de3a60c190da75de196e57f705f0acc5742f58a5b55e3a53b8d5dead3d9bf7adbf08080f3ac4e695ce0609826ec8c71f74909a4a0a8ed599b42a96ed52b3a9458e6278a902b1e57884d9dff42714261b0a8f2eff82a63efc33121d11e224159fe6fe67d80480154e85e8b1b6325e905cceea9d1a875e6863fb89921e33bc01ff1aca31ccf6e20327a3055f5e5cf5b5de038085c5161b9ff66dd3bdd9bc4a664c8e702c927f7525e6a671571e4ed5dde329751d4fe5cf57a50a961baf00869a9a51048282f0f51923ad27780796248ca4d3b9073b1b6aa0393ff7c7558c033458cc2aa8e591a20a47656330e9779c241967812fc1ebaa5ef733080b955f92b504b5a3e96de41f8cb1ffdae4467c47)
-	) interleaver (
-		.cycle_index(cycle_index[$clog2(cpc-2)-1:0]),
-		.reset(reset),
-		.memory_index_package(memory_index)
-	);
-
-	address_decoder #(
-		.fo(fo), 
-	 	.fi(fi), 
-	 	.p(p), 
-	 	.n(n), 
-	 	.z(z)
-	) address_decoder (
-		.memory_index_package(memory_index),
-		.address_package(r_address_raw),
-		.mux_sel_package(initial_mux_sel)
-		//note that initial_d_mux_sel doesn't exist, so the final port is unconnected
-	); 
-
-	act_ctr	 #(
-		.fo(fo), 
-		.fi(fi), 
-		.p (p), 
-		.n(n), 
-		.z(z), 
-		.L(L), 
-		.cpc(cpc), 
-		.width(width), 
-		.collection(collection)
-	) act_ctr (
-		.clk(clk),
-		.reset(reset),
-		.cycle_clk(cycle_clk),
-		.cycle_index(cycle_index),
-		.r_address_raw(r_address_raw),
-		.data_in(data_in), 
-		.act_addr_package(act_addr_package),
-		.act_we_package(act_we_package),
-		.data_in_mem(data_in_mem), 
-		.rFF_pt(initial_rFF_pt),
-		.rUP_pt(initial_rUP_pt)
-	);
-
-	DFF #(.width($clog2(z)*z)) DFF_mux_sel (.clk(clk), .reset(reset), .d(initial_mux_sel), .q(actual_mux_sel));	
-	DFF #(.width($clog2(collection))) DFF_rFF_pt (.clk(clk), .reset(reset), .d(initial_rFF_pt), .q(actual_rFF_pt));
-	DFF #(.width($clog2(collection))) DFF_rUP_pt (.clk(clk), .reset(reset), .d(initial_rUP_pt), .q(actual_rUP_pt));
-endmodule
-
-
-// act_ctr is a subset of act_sp_ctr, without sigmoid prime
-module act_ctr #(
+module act_ctr #( // act_ctr is a subset of act_sp_ctr, without sigmoid prime
 	parameter fo = 2,
 	parameter fi  = 4,
 	parameter p  = 16,
@@ -664,6 +397,296 @@ module act_ctr #(
 	);
 endmodule
 
+/***** Main layer modules *****/
+
+module hidden_layer_state_machine #( // This is state machinw, so it will input data and output all mem data and control signals, i.e. for AMp, AMn, DMp, DMn
+	parameter fo = 2,
+	parameter fi  = 4,
+	parameter p  = 8,
+	parameter n  = 4,
+	parameter z  = 4,
+	parameter L = 3,
+	parameter h = 1, //Index. Layer after input has h = 1, then 2 and so on
+	parameter cpc = p/z*fo+2,
+	parameter width = 16,
+	parameter collection = 2*(L-h) - 1 //No. of AM and SM collections (SM means sigmoid prime memory)
+	// Note that no. of DM collections is always 2
+)(
+	input clk,
+	input reset,
+	input [$clog2(cpc)-1:0] cycle_index,
+	input cycle_clk,
+	
+	input [width*z/fo-1:0] act_data_in, //z weights processed together and since fo weights = 1 neuron, z/fo activations processed together
+	input [width*z/fo-1:0] sp_data_in, //Same as act
+	output [collection*z*$clog2(p/z)-1:0] act_addr_package, //AMp collections, each has z AMs, each AM has p/z entries, so total address bits = collection*z*log(p/z)
+	output [collection*z-1:0] act_we_package, //Each AM has 1 we
+	output [collection*z*width-1:0] act_data_in_mem, //Output data from a particular cell of all AMs
+	output [collection*z*width-1:0] sp_data_in_mem, //Each read out datum from AM must have associated sp
+	// For following DM parameters, replace collection with 2. Also, DM is dual port, so we need 2 addresses and 2 write enables
+	output [2*z*$clog2(p/z)-1:0] d_addrA_package, //DMp collections
+	output [2*z-1:0] d_weA_package,
+	output [2*z*$clog2(p/z)-1:0] d_addrB_package,
+	output [2*z-1:0] d_weB_package,
+	output [2*z*width-1:0] d_mem_inB, //Data to be written into DM port B
+	
+	output [$clog2(z)*z-1:0] actual_mux_sel, //Goes to AMp, SMp. z MUXes, each of size z, i.e. log(z) select bits
+	output [$clog2(z)*z-1:0] actual_d_mux_sel,	//Goes to DMp. When writing back to DMp, we need to reverse permutation. These are also z MUXes, each of size z, i.e. log(z) select bits
+	
+	//Reads are done for FF and UP (i.e. AMs). Following pointers are for reading 1 out of 2(L-h)-1 collections
+	output [$clog2(collection)-1:0] actual_rFF_pt, //goes to FF
+	output [$clog2(collection)-1:0] actual_rUP_pt, //goes to UP
+	
+	//Both read and write is done for BP (i.e. DMs). Following pointers are for reading/writing from 1 out of 2 collections (that's why they are only 1 bit)
+	output d_r_pt, //choose collection from which read is done for preivous BP. Negation of this will be for write.
+	output [$clog2(cpc)-1:0] cycle_index_delay
+);	
+
+	wire [$clog2(p)*z-1:0] memory_index; //Output of z interleavers. Points to all z neurons in p layer from which activations are to be taken for FF
+	wire [$clog2(p/z)*z-1:0] r_address_raw; //z read addresses from all AMp for FF and UP
+	//Note that same mem adresses are used for FF collection and UP collection, just because they are different collections, they need different r_pt values
+	wire [$clog2(z)*z-1:0] initial_mux_sel, initial_d_mux_sel; //z MUXes, each z-to-1, i.e. log(z) select bits
+	wire [$clog2(collection)-1:0] initial_rFF_pt, initial_rUP_pt; //AM collections used for FF and UP
+
+	// Set of z interleaver blocks. Takes cycle index as input, computes interleaved output
+	interleaver_set #(
+		.fo(fo), 
+	 	.fi(fi), 
+	 	.p(p), 
+	 	.n(n), 
+	 	.z(z)
+		//.sweepstart(256'b1110010100111100110100000110011000111010100010111100101010110001000001010101001110111011110001100010010001001111111001010001101110010000111011010011001111000101101100110100010010111001000111010100010011011101011110100011010011101000101010001111100110100001)
+	) interleaver (
+		.cycle_index(cycle_index[$clog2(cpc-2)-1:0]), //if cpc = 3, then $clog2(cpc-2)-1 = -1. For Verilog, a[-1:0] is a syntax error. So cpc must be > 3
+		.reset(reset),
+		.memory_index_package(memory_index)
+	);
+
+	address_decoder #(
+		.fo(fo), 
+	 	.fi(fi), 
+	 	.p(p), 
+	 	.n(n), 
+	 	.z(z)
+	) address_decoder (
+		.memory_index_package(memory_index),
+		.address_package(r_address_raw),
+		.mux_sel_package(initial_mux_sel),
+		.d_mux_sel_package(initial_d_mux_sel)
+	);
+
+	act_sp_ctr #(
+		.fo(fo), 
+		.fi(fi), 
+		.p(p), 
+		.n(n), 
+		.z(z), 
+		.L(L), 
+		.h(h),
+		.cpc(cpc), 
+		.width(width), 
+		.collection(collection)
+	) act_sp_ctr (
+		.clk(clk),
+		.reset(reset),
+		.cycle_clk(cycle_clk),
+		.cycle_index(cycle_index),
+		.r_address_raw(r_address_raw),
+		.act_data_in(act_data_in),
+		.sp_data_in(sp_data_in),
+		.act_addr_package(act_addr_package),
+		.act_we_package(act_we_package),
+		.act_data_in_mem(act_data_in_mem),
+		.sp_data_in_mem(sp_data_in_mem), 
+		.d_addrA_package(d_addrA_package),
+		.d_weA_package(d_weA_package),
+		.d_addrB_package(d_addrB_package),
+		.d_weB_package(d_weB_package),
+		.d_mem_inB(d_mem_inB), 
+		.rFF_pt(initial_rFF_pt),
+		.rUP_pt(initial_rUP_pt),
+		.d_rBP_pt(d_r_pt),
+		.cycle_index_d(cycle_index_delay)
+	);
+
+	//DFFs used to delay control signals one clock, since memory needs 1 cycle to operate
+	DFF #(.width($clog2(z)*z)) DFF_mux_sel (.clk(clk), .reset(reset), .d(initial_mux_sel), .q(actual_mux_sel));	
+	DFF #(.width($clog2(z)*z)) DFF_d_mux_sel (.clk(clk), .reset(reset), .d(initial_d_mux_sel), .q(actual_d_mux_sel));	
+	DFF #(.width($clog2(collection))) DFF_rFF_pt (.clk(clk), .reset(reset), .d(initial_rFF_pt), .q(actual_rFF_pt));
+	DFF #(.width($clog2(collection))) DFF_rUP_pt (.clk(clk), .reset(reset), .d(initial_rUP_pt), .q(actual_rUP_pt));
+endmodule
+
+module input_layer_state_machine #( // first_layer_state_machine is a subset of hidden_layer_state_machine, without DMs
+	parameter fo = 2,
+	parameter fi  = 4,
+	parameter p  = 16,
+	parameter n  = 8,
+	parameter z  = 8,
+	parameter L = 3,
+	parameter cpc = p/z*fo+2,
+	parameter width = 1, //width of input data
+	parameter collection = 2*L - 1
+)(
+	input clk,
+	input reset,
+	input [$clog2(cpc)-1:0] cycle_index,
+	input cycle_clk,
+	input [width*z/fo-1:0] data_in,
+	output [collection*z*$clog2(p/z)-1:0] act_addr_package,
+	output [collection*z-1:0] act_we_package,
+	output [$clog2(z)*z-1:0] actual_mux_sel,
+	output [collection*z*width-1:0] data_in_mem,
+	output [$clog2(collection)-1:0] actual_rFF_pt,
+	output [$clog2(collection)-1:0] actual_rUP_pt
+);
+
+	wire [$clog2(p)*z-1:0] memory_index;
+	wire [$clog2(p/z)*z-1:0] act_addr;
+	wire [$clog2(p/z)*z-1:0] r_address_raw;
+	wire [$clog2(z)*z-1:0] initial_mux_sel;
+	wire [$clog2(collection)-1:0] initial_rFF_pt, initial_rUP_pt;
+
+	interleaver_set #(
+		.fo(fo), 
+	 	.fi(fi), 
+	 	.p(p), 
+	 	.n(n), 
+	 	.z(z)
+		//.sweepstart(4096'hd0bc4002a66bc4751f90eeb78c9be0ca981fec47fd90e8b3fe04987a4c7f85d6a8c230af9b2bf8790c022274174bfbf0594e01ff2af007e00aacfbf99ad76093a54c24481c877e32d5f594bbb5da4b74592a287f7d62d18597be33d1e48e9e436303bdac2f4179549e7b422130a0cac25db4fadcc7f294c4952483db10bd3a5d728f85cb5dcdc8d991f919c9c74a1b8204ca6f99153e55037710af5076f148ad63c9460896e3e7f0b1ecd529796b3d65434207f94023e7454c279ec9e7b9d875f6b310c1cb7836375b3d1228f17627eeda16913b081ccba6647693f50cf9a19a670a4da6822fa607cda8d592900ab83ee9f4de3a60c190da75de196e57f705f0acc5742f58a5b55e3a53b8d5dead3d9bf7adbf08080f3ac4e695ce0609826ec8c71f74909a4a0a8ed599b42a96ed52b3a9458e6278a902b1e57884d9dff42714261b0a8f2eff82a63efc33121d11e224159fe6fe67d80480154e85e8b1b6325e905cceea9d1a875e6863fb89921e33bc01ff1aca31ccf6e20327a3055f5e5cf5b5de038085c5161b9ff66dd3bdd9bc4a664c8e702c927f7525e6a671571e4ed5dde329751d4fe5cf57a50a961baf00869a9a51048282f0f51923ad27780796248ca4d3b9073b1b6aa0393ff7c7558c033458cc2aa8e591a20a47656330e9779c241967812fc1ebaa5ef733080b955f92b504b5a3e96de41f8cb1ffdae4467c47)
+	) interleaver (
+		.cycle_index(cycle_index[$clog2(cpc-2)-1:0]),
+		.reset(reset),
+		.memory_index_package(memory_index)
+	);
+
+	address_decoder #(
+		.fo(fo), 
+	 	.fi(fi), 
+	 	.p(p), 
+	 	.n(n), 
+	 	.z(z)
+	) address_decoder (
+		.memory_index_package(memory_index),
+		.address_package(r_address_raw),
+		.mux_sel_package(initial_mux_sel)
+		//note that initial_d_mux_sel doesn't exist, so the final port is unconnected
+	); 
+
+	act_ctr	 #(
+		.fo(fo), 
+		.fi(fi), 
+		.p (p), 
+		.n(n), 
+		.z(z), 
+		.L(L), 
+		.cpc(cpc), 
+		.width(width), 
+		.collection(collection)
+	) act_ctr (
+		.clk(clk),
+		.reset(reset),
+		.cycle_clk(cycle_clk),
+		.cycle_index(cycle_index),
+		.r_address_raw(r_address_raw),
+		.data_in(data_in), 
+		.act_addr_package(act_addr_package),
+		.act_we_package(act_we_package),
+		.data_in_mem(data_in_mem), 
+		.rFF_pt(initial_rFF_pt),
+		.rUP_pt(initial_rUP_pt)
+	);
+
+	DFF #(.width($clog2(z)*z)) DFF_mux_sel (.clk(clk), .reset(reset), .d(initial_mux_sel), .q(actual_mux_sel));	
+	DFF #(.width($clog2(collection))) DFF_rFF_pt (.clk(clk), .reset(reset), .d(initial_rFF_pt), .q(actual_rFF_pt));
+	DFF #(.width($clog2(collection))) DFF_rUP_pt (.clk(clk), .reset(reset), .d(initial_rUP_pt), .q(actual_rUP_pt));
+endmodule
+
+module output_layer_state_machine #( //This is a state machine, so it controls last layer by giving all memory and data control signals
+	parameter z = 1,
+	parameter p = 4, //Number of neurons in last layer
+	parameter fi = 2,
+	parameter L = 3,
+	parameter width = 16,
+	parameter cpc = p/z*fi+2
+	//There is no param for collection because delta memory always has 2 collections in output layer. Each collection is a bunch of z memories, each of size p*fo/z
+)(
+	input clk,
+	input reset,
+	input [$clog2(cpc)-1:0] cycle_index, //This is used for reading in cycles 0,...,cpc-3
+	input cycle_clk, //1 cycle_clk = cpc clks
+	input [width*z-1:0] data_in, //delta, after it finishes computation from cost terms
+	output [2*z*$clog2(p/z)-1:0] addr_package, //lump all addresses together: collections * mem/collection * addr_bits/mem
+	// Note that these addresses are for AM, so they are log(p/z) bits
+	output [2*z-1:0] we_package,
+	output [2*z*width-1:0] data_in_mem_package,
+	output r_pt //selects 1 collection. 1b because no. of DM collections is always 2
+);
+
+	wire actual_coll_wpt, initial_coll_wpt; //1b because no. of DM collections is always 2
+	//initial_coll_wpt is collection which will be written in this cycle_clk (cost collection). actual_coll_wpt is same thing, delayed by 1-2 clocks because write does not start until clk 2.
+	wire [$clog2(cpc)-1:0] cycle_index_delay; //Delayed version of cycle_index by 2 clocks. Used for writing in cycles 2,...,cpc-1
+	
+	// Unpack all collections together 1D array into 2D array, with 1 dimension exclusively for collection
+	// Note that the other dimension still packs stuff for all z memories in a collection
+	wire [z-1:0] we[1:0];
+	wire [z*$clog2(p/z)-1:0] addr[1:0];
+	wire [z*width-1:0] data_in_mem[1:0];
+	
+	genvar gv_i, gv_j;
+	generate for (gv_i = 0; gv_i<2; gv_i = gv_i + 1)
+	begin: package_collection
+		assign data_in_mem_package[width*z*(gv_i+1)-1:width*z*gv_i] = data_in_mem[gv_i];
+		assign addr_package[$clog2(p/z)*z*(gv_i+1)-1:$clog2(p/z)*z*gv_i] = addr[gv_i];
+		assign we_package[z*(gv_i+1)-1:z*gv_i] = we[gv_i];
+	end
+	endgenerate
+	// Done unpack
+
+	generate for (gv_i = 0; gv_i<2; gv_i = gv_i + 1)
+	begin: data_collections
+		assign data_in_mem[gv_i] = data_in; //assign input data to memories in both collections, later mux will select 1
+	end
+	endgenerate
+
+	// Generate write enables
+	generate for (gv_i = 0; gv_i<2; gv_i = gv_i + 1)
+	begin: enable_set
+		for (gv_j = 0; gv_j<z; gv_j = gv_j + 1)
+		begin: enable
+			assign we[gv_i][gv_j] = actual_coll_wpt==gv_i && cycle_index>1? ~reset : 0; //1st cycle is only for read. Write starting from 2nd cycle
+			assign addr[gv_i][$clog2(p/z)*(gv_j+1)-1:$clog2(p/z)*gv_j] = 
+				actual_coll_wpt==gv_i ? cycle_index_delay[$clog2(p/z)-1:0] : cycle_index[$clog2(p/z)-1:0];
+			//If actual_coll_wpt equals collection ID (0 or 1), then memory is being written. Write in cycles 2,3,...,cpc-1. Otherwise memory is being read. Read in cycles 0,1,...,cpc-3
+		end
+	end
+	endgenerate
+
+	counter #(.max(2), //Counter for DM collections. After every cpc clocks (i.e. 1 cycle_clk), changes from 0->1 or 1->0
+			.ini(0)) delta_r_pt
+			(cycle_clk, reset, initial_coll_wpt);
+	// Note that counter output is initial_coll_wpt, which initially points to collection to be written into
+
+	DFF #(
+		.width(1)
+	) dff_pointer (
+		.clk(clk),
+		.reset(reset),
+		.d(initial_coll_wpt),
+		.q(actual_coll_wpt)
+	); //1 DFF is enough because mem remains idle. 2 is also fine
+	assign r_pt = ~initial_coll_wpt; //Read pointer points to the other collection, form where I'm reading values and computing BP for prev layer
+
+	shift_reg #(
+		.width($clog2(cpc)), 
+		.depth(2)
+	) cycle_index_reg (
+		.clk(clk),
+		.reset(reset),
+		.data_in(cycle_index),
+		.data_out(cycle_index_delay)
+	);
+endmodule
+
 
 /* [OLD] For the next 2 modules, refer to slide 19 of Sourya_20160629_DRP.pptx
 module address_decoder #(
@@ -678,12 +701,10 @@ module address_decoder #(
 	output [$clog2(z)*z-1:0] mux_sel_package, //control signals for AMp MUXes
 	output [$clog2(z)*z-1:0] d_mux_sel_package //control signals for DMp MUXes
 );
-
 	wire [$clog2(z)-1:0] insert[z-1:0];
 	wire [$clog2(p)-1:0]memory_index[z-1:0];
 
 	genvar gv_i;
-
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
 	begin: address_decoder
 		comparator_set #(
@@ -710,7 +731,6 @@ module comparator_set #(
 	input [$clog2(p)*z-1:0] memory_index_package,
 	output reg[$clog2(z)-1:0] insert
 );
-
 	wire [$clog2(p)-1:0] memory_index [z-1:0];
 
 	// Unpack
@@ -731,28 +751,5 @@ module comparator_set #(
 	end
 endmodule*/
 
-module address_decoder #(
-	parameter fo = 2,
-	parameter fi  = 4,
-	parameter p  = 16,
-	parameter n  = 8,
-	parameter z  = 8
-)(
-	input [$clog2(p)*z-1:0] memory_index_package, //Neuron from where I should get activation = output of interleaver
-	output [$clog2(p/z)*z-1:0] address_package, //1 address for each AMp and DMp, total of z. Addresses are log(p/z) bits since AMp and DMp have that many elements
-	output [$clog2(z)*z-1:0] mux_sel_package, //control signals for AMp MUXes
-	output [$clog2(z)*z-1:0] d_mux_sel_package //control signals for DMp MUXes
-);
 
-	wire [$clog2(p)-1:0]memory_index[z-1:0];
 
-	genvar gv_i;
-	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
-	begin: address_decoder
-		assign memory_index[gv_i] = memory_index_package[$clog2(p)*(gv_i+1)-1:$clog2(p)*gv_i]; //Unpacking
-		assign address_package[$clog2(p/z)*(gv_i+1)-1:$clog2(p/z)*gv_i] = memory_index[gv_i][$clog2(p)-1:$clog2(z)];
-		assign mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] =  gv_i;
-		assign d_mux_sel_package[$clog2(z)*(gv_i+1)-1:$clog2(z)*gv_i] = gv_i;
-	end
-	endgenerate
-endmodule

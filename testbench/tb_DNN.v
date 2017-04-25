@@ -247,7 +247,7 @@ module tb_DNN #(
 	
 	//The following variables store information about all output neurons
 	real  net_a_out[n[L-1]-1:0], //Actual 32-bit output of network
-			//a_minus_y[cpc-3:0],
+			//actans_diff[cpc-3:0],
 			//spL[n[L-1]-1:0],
 			//zL[n[L-1]-1:0], //output layer z, i.e. just before taking final sigmoid
 			delta[n[L-1]-1:0]; //a-y
@@ -279,10 +279,10 @@ module tb_DNN #(
 		if (cycle_index>1) begin //Actual output, ideal output, delta
 			net_a_out[cycle_index-2] = DNN.actL1/2.0**frac_bits;
 			net_y_out[cycle_index-2] = y_out; //Division is not required because it is not in bit form
-			// spL[cycle_index-2] = DNN.output_layer_block.spL/2.0**frac_bits;
+			// spL[cycle_index-2] = DNN.output_layer_block.adot_in/2.0**frac_bits;
 			// The next 2 values occur as packed inside src (which can't be signed), so we need to separate 1 unsigned value
-			delta[cycle_index-2] = DNN.output_layer_block.delta[width-1:0]/2.0**frac_bits - DNN.output_layer_block.delta[width-1]*2.0**(1+int_bits);
-			// a_minus_y[cycle_index-2] = DNN.output_layer_block.a_minus_y[width-1:0]/2.0**frac_bits - DNN.output_layer_block.a_minus_y[width-1]*2.0**(1+int_bits);
+			delta[cycle_index-2] = DNN.output_layer_block.del[width-1:0]/2.0**frac_bits - DNN.output_layer_block.del[width-1]*2.0**(1+int_bits);
+			// actans_diff[cycle_index-2] = DNN.output_layer_block.actans_diff[width-1:0]/2.0**frac_bits - DNN.output_layer_block.actans_diff[width-1]*2.0**(1+int_bits);
 		end
 		/*if (cycle_index>0 && cycle_index<=cpc-2) begin //z of output layer
 			zL[cycle_index-1] = DNN.hidden_layer_block_1.FF_processor.sigmoid_function_set[0].s_function.s/2.0**frac_bits;
@@ -363,7 +363,7 @@ module tb_DNN #(
 		if (cycle_index > 1 && a_out != y_out) tc_error = 1; //Since output is obtained starting from cycle 2 up till cycle (cpc-1)
 		if( cycle_index > 1)
 			// Need to divide actL by 2**frac_bits to get result between 0 and 1
-			if(y_out) error_rate = error_rate + y_out - DNN.actL/(2**frac_bits); //y_out = 1, so |y_out-actL| = 1-actL
-			else error_rate = error_rate + DNN.actL/(2**frac_bits); //y_out = 0, so |y_out-actL| = actL
+			if(y_out) error_rate = error_rate + y_out - DNN.actL1/(2**frac_bits); //y_out = 1, so |y_out-actL| = 1-actL
+			else error_rate = error_rate + DNN.actL1/(2**frac_bits); //y_out = 0, so |y_out-actL| = actL
 	end */
 endmodule
