@@ -176,11 +176,11 @@ module input_layer_block #(
 		.frac_bits(frac_bits)
 	) L0_FF_processor (
 		.clk(clk),
-		.a_package(act_FF_in),
-		.w_package(wt),
-		.b_package(bias),
-		.sigmoid_package(act_out),
-		.sp_package(adot_out)
+		.act_in_package(act_FF_in),
+		.wt_package(wt),
+		.bias_package(bias),
+		.act_out_package(act_out),
+		.adot_out_package(adot_out)
 	);
 
 	UP_processor_set #(
@@ -196,12 +196,12 @@ module input_layer_block #(
 		.frac_bits(frac_bits)
 	) L0_UP_processor (
 		.etapos(etapos), 
-		.delta_package(del_in),
-		.w_package(wt),
-		.b_package(bias),
-		.a_package(act_UP_in),
-		.w_UP_package(wt_UP),
-		.b_UP_package(bias_UP)
+		.del_in_package(del_in),
+		.wt_package(wt),
+		.bias_package(bias),
+		.act_in_package(act_UP_in),
+		.wt_UP_package(wt_UP),
+		.bias_UP_package(bias_UP)
 	);
 
 
@@ -439,11 +439,11 @@ module hidden_layer_block #(
 		.frac_bits(frac_bits)
 	) FF_processor (
 		.clk(clk),
-		.a_package(act_FF_in),
-		.w_package(wt),
-		.b_package(bias),
-		.sigmoid_package(act_out),
-		.sp_package(adot_out)
+		.act_in_package(act_FF_in),
+		.wt_package(wt),
+		.bias_package(bias),
+		.act_out_package(act_out),
+		.adot_out_package(adot_out)
 	);
 
 	UP_processor_set #(
@@ -459,12 +459,12 @@ module hidden_layer_block #(
 		.frac_bits(frac_bits)
 	) UP_processor (
 		.etapos(etapos), 
-		.delta_package(del_in),
-		.w_package(wt),
-		.b_package(bias),
-		.a_package(act_UP_in),
-		.w_UP_package(wt_UP),
-		.b_UP_package(bias_UP)
+		.del_in_package(del_in),
+		.wt_package(wt),
+		.bias_package(bias),
+		.act_in_package(act_UP_in),
+		.wt_UP_package(wt_UP),
+		.bias_UP_package(bias_UP)
 	);
 
 	BP_processor_set #(
@@ -477,11 +477,11 @@ module hidden_layer_block #(
 		.int_bits(int_bits), 
 		.frac_bits(frac_bits)
 	) BP_processor (
-		.deltan_package(del_in),
-		.sp_package(adot_BP_in),
-		.w_package(wt),
-		.partial_d_package(del_partial_BP_in),
-		.deltap_package(del_BP_out)
+		.del_in_package(del_in),
+		.adot_out_package(adot_BP_in),
+		.wt_package(wt),
+		.partial_del_out_package(del_partial_BP_in),
+		.del_out_package(del_BP_out)
 	);
 
 

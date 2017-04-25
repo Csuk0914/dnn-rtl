@@ -267,13 +267,13 @@ module tb_DNN #(
 	always @(negedge clk) begin
 		if (cycle_index==2) begin
 			for (q=0;q<z[L-2];q=q+1) begin //Weights and activations
-				a1[q] = DNN.hidden_layer_block_1.UP_processor.a[q]/2.0**frac_bits;
-				wb1[q] = DNN.hidden_layer_block_1.UP_processor.w[q]/2.0**frac_bits;
-				//del_wb1[q] = DNN.hidden_layer_block_1.UP_processor.delta_w[q]/2.0**frac_bits;
+				a1[q] = DNN.hidden_layer_block_1.UP_processor.act_in[q]/2.0**frac_bits;
+				wb1[q] = DNN.hidden_layer_block_1.UP_processor.wt[q]/2.0**frac_bits;
+				//del_wb1[q] = DNN.hidden_layer_block_1.UP_processor.delta_wt[q]/2.0**frac_bits;
 			end
 			for (q=z[L-2];q<z[L-2]+z[L-2]/fi[L-2];q=q+1) begin //Biases
-				wb1[q] =DNN.hidden_layer_block_1.UP_processor.b[q-z[L-2]]/2.0**frac_bits;
-				//del_wb1[q] =DNN.hidden_layer_block_1.UP_processor.delta_b[q-z[L-2]]/2.0**frac_bits;
+				wb1[q] =DNN.hidden_layer_block_1.UP_processor.bias[q-z[L-2]]/2.0**frac_bits;
+				//del_wb1[q] =DNN.hidden_layer_block_1.UP_processor.delta_bias[q-z[L-2]]/2.0**frac_bits;
 			end
 		end
 		if (cycle_index>1) begin //Actual output, ideal output, delta
