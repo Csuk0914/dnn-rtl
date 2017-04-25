@@ -32,32 +32,32 @@ module tb_DNN #(
 
 `ifdef MNIST
 	parameter [31:0] fo [0:L-2] = '{8, 8}; //Fanout of all layers except for output
-	parameter [31:0] fi [0:L-2]  = '{128, 32}; //Fanin of all layers except for input
-	parameter [31:0] z [0:L-2]  = '{512, 32}; //Degree of parallelism of all junctions. No. of junctions = L-1
+	parameter [31:0] fi [0:L-2] = '{128, 32}; //Fanin of all layers except for input
+	parameter [31:0] z [0:L-2] = '{512, 32}; //Degree of parallelism of all junctions. No. of junctions = L-1
 	parameter [31:0] n [0:L-1] = '{1024, 64, 16}; //No. of neurons in every layer
 `elsif SMALLNET
-	parameter [31:0]fo[0:L-2] = '{2, 2};
-	parameter [31:0]fi[0:L-2]  = '{8, 8};
-	parameter [31:0]z[0:L-2]  = '{32, 8};
-	parameter [31:0]n[0:L-1] = '{64, 16, 4};
+	parameter [31:0] fo [0:L-2] = '{2, 2};
+	parameter [31:0] fi [0:L-2] = '{8, 8};
+	parameter [31:0] z [0:L-2] = '{32, 8};
+	parameter [31:0] n [0:L-1] = '{64, 16, 4};
 `endif
 	localparam cpc =  n[0] * fo[0] / z[0] + 2;
 	
 	////////////////////////////////////////////////////////////////////////////////////
 	// define DNN DUT I/O
-	// DNN input: clk, reset, etapos, a_in, y_in
-	// DNN output: y_out, a_out
+	// DNN input: clk, reset, etapos, act0, ans0
+	// DNN output: ansL, actL_alln
 	////////////////////////////////////////////////////////////////////////////////////
 	reg clk = 1;
 	reg reset = 1;
 	reg [$clog2(frac_bits+2)-1:0] etapos; /*etapos = -log2(Eta)+1. Eg: If Eta=2^-4, etapos=5. etapos=0 is not valid
 	Min allowable value of Eta = 2^(-frac_bits) => Max value of etapos = frac_bits+1, which needs log2(frac_bits+2) bits to store
 	Max allowable value of Eta = 1 => Min value of etapos = 1. So etapos is never 0 */
-	wire [width_in*z[0]/fo[0]-1:0] a_in; //No. of input activations coming into input layer per clock, each having width_in bits
-	wire [z[L-2]/fi[L-2]-1:0] y_in; //No. of ideal outputs coming into input layer per clock
-	wire [z[L-2]/fi[L-2]-1:0] y_out; //ideal output (y_in after going through all layers)
-	wire [n[L-1]-1:0] a_out; //Actual output [Eg: 4/4=1 output neuron processed per clock] of ALL output neurons
-	// wire [z[L-2]/fi[L-2]-1:0] a_out;
+	wire [width_in*z[0]/fo[0]-1:0] act0; //No. of input activations coming into input layer per clock, each having width_in bits
+	wire [z[L-2]/fi[L-2]-1:0] ans0; //No. of ideal outputs coming into input layer per clock
+	wire [z[L-2]/fi[L-2]-1:0] ansL; //ideal output (ans0 after going through all layers)
+	wire [n[L-1]-1:0] actL_alln; //Actual output [Eg: 4/4=1 output neuron processed per clock] of ALL output neurons
+	// wire [z[L-2]/fi[L-2]-1:0] actL_alln;
 	////////////////////////////////////////////////////////////////////////////////////
 
 	////////////////////////////////////////////////////////////////////////////////////
@@ -76,13 +76,13 @@ module tb_DNN #(
 		//.eta(eta), 
 		//.lamda(lamda),
 	) DNN (
-		.act0(a_in),
-		.ans0(y_in), 
+		.act0(act0),
+		.ans0(ans0), 
 		.etapos0(etapos), 
 		.clk(clk),
 		.reset(reset),
-		.ansL(y_out),
-		.actL_alln(a_out)
+		.ansL(ansL),
+		.actL_alln(actL_alln)
 	);
 	////////////////////////////////////////////////////////////////////////////////////
 
@@ -127,8 +127,8 @@ module tb_DNN #(
 	////////////////////////////////////////////////////////////////////////////////////
 	reg [$clog2(`TC)-1:0] sel_tc = 0; //MUX select to choose training case each block cycle
 	wire [$clog2(cpc-2)-1:0] sel_network; //MUX select to choose which input/output pair to feed to network within a block cycle
-	wire [n[L-1]-1:0] y; //Complete 1b ideal output for 1 training case, i.e. No. of output neurons x 1 x 1
-	wire [width_in*n[0]-1:0] a; //Complete 8b act input for 1 training case, i.e. No. of input neurons x 8 x 1
+	wire [n[L-1]-1:0] ans0_tc; //Complete 1b ideal output for 1 training case, i.e. No. of output neurons x 1 x 1
+	wire [width_in*n[0]-1:0] act0_tc; //Complete 8b act input for 1 training case, i.e. No. of input neurons x 8 x 1
 
 	assign sel_network = cycle_index[$clog2(cpc-2)-1:0]-2;
 	/* cycle_index goes from 0-17, so its 4 LSB go from 0 to cpc-3 then 0 to 1
@@ -140,13 +140,13 @@ module tb_DNN #(
 		.width(z[L-2]/fi[L-2]), 
 		.N(n[L-1]*fi[L-2]/z[L-2]) //This is basically cpc-2 of the last junction
 	) mux_idealoutput_feednetwork (
-		y, sel_network, y_in);
+		ans0_tc, sel_network, ans0);
 
 	mux #( //Choose the required no. of act inputs for feeding to DNN
 		.width(width_in*z[0]/fo[0]), 
 		.N(n[0]*fo[0]/z[0]) //This is basically cpc-2 of the 1st junction
 	) mux_actinput_feednetwork (
-		a, sel_network, a_in);
+		act0_tc, sel_network, act0);
 	////////////////////////////////////////////////////////////////////////////////////
 
 	////////////////////////////////////////////////////////////////////////////////////
@@ -173,42 +173,42 @@ module tb_DNN #(
 	
 	`ifdef MNIST
 		`ifdef MODELSIM
-			reg [width_in-1:0] a_mem[`TC-1:0][`NIN-1:0]; //inputs
-			reg y_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
+			reg [width_in-1:0] act_mem[`TC-1:0][`NIN-1:0]; //inputs
+			reg ans_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
 			initial begin
 				$readmemb("./gaussian_list/s136_frc7_int2.dat", memJ1);
 				$readmemb("./gaussian_list/s40_frc7_int2.dat", memJ2);
-				$readmemb("train_idealout_spaced.dat", y_mem);
-				$readmemh("train_input_spaced.dat", a_mem);
+				$readmemb("train_idealout_spaced.dat", ans_mem);
+				$readmemh("train_input_spaced.dat", act_mem);
 			end       
 		`elsif VIVADO
-			reg [width_in-1:0] a_mem[`TC-1:0][0:`NIN-1]; //flipping only occurs in the 784 dimension
-			reg y_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
+			reg [width_in-1:0] act_mem[`TC-1:0][0:`NIN-1]; //flipping only occurs in the 784 dimension
+			reg ans_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
 			initial begin
 				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s136_frc7_int2.dat", memJ1);
 				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s40_frc7_int2.dat", memJ2);
-				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout.dat", y_mem);
-				$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input.dat", a_mem);
+				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout.dat", ans_mem);
+				$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input.dat", act_mem);
 			end
 		`endif
 	`elsif SMALLNET
 		`ifdef MODELSIM
-			reg [width_in-1:0] a_mem[`TC-1:0][`NIN-1:0]; //inputs
-			reg y_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
+			reg [width_in-1:0] act_mem[`TC-1:0][`NIN-1:0]; //inputs
+			reg ans_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
 			initial begin
 				$readmemb("./gaussian_list/s10_frc7_int2.dat", memJ1);
 				$readmemb("./gaussian_list/s10_frc7_int2.dat", memJ2);
-				$readmemb("train_idealout_4_spaced.dat", y_mem);
-				$readmemh("train_input_64_spaced.dat", a_mem);
+				$readmemb("train_idealout_4_spaced.dat", ans_mem);
+				$readmemh("train_input_64_spaced.dat", act_mem);
 			end       
 		`elsif VIVADO
-			reg [width_in-1:0] a_mem[`TC-1:0][0:`NIN-1]; //flipping only occurs in the 784 dimension
-			reg y_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
+			reg [width_in-1:0] act_mem[`TC-1:0][0:`NIN-1]; //flipping only occurs in the 784 dimension
+			reg ans_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
 			initial begin
 				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s10_frc7_int2.dat", memJ1);
 				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s10_frc7_int2.dat", memJ2);
-				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout_4.dat", y_mem);
-				$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input_64.dat", a_mem);
+				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout_4.dat", ans_mem);
+				$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input_64.dat", act_mem);
 			end
 		`endif	
 	`endif
@@ -216,13 +216,13 @@ module tb_DNN #(
 	genvar gv_i;	
 	generate for (gv_i = 0; gv_i<n[0]; gv_i = gv_i + 1)
 	begin: pr
-		assign a[width_in*(gv_i+1)-1:width_in*gv_i] = (gv_i<`NIN)? a_mem[sel_tc][gv_i]:0;
+		assign act0_tc[width_in*(gv_i+1)-1:width_in*gv_i] = (gv_i<`NIN)? act_mem[sel_tc][gv_i]:0;
 	end
 	endgenerate
 
 	generate for (gv_i = 0; gv_i<n[L-1]; gv_i = gv_i + 1)
 	begin: pp
-		assign y[gv_i] = (gv_i<`NOUT)? y_mem[sel_tc][gv_i]:0;
+		assign ans0_tc[gv_i] = (gv_i<`NOUT)? ans_mem[sel_tc][gv_i]:0;
 	end
 	endgenerate
 	////////////////////////////////////////////////////////////////////////////////////
@@ -239,24 +239,24 @@ module tb_DNN #(
 				crt_pt=0, //points to where current training case result will enter. Loops around on reaching 1000
 				total_correct = 0, //Total number of correct accumulated over training cases
 				log_file;
-	real 		EMS; //Expected mean square error between a_out and y_out of all neurons in output layer
+	real 		EMS; //Expected mean square error between actL_alln and ansL of all neurons in output layer
 	/*real error_rate = 0;
-	* Let e = sum over all output neurons |y_out-actL|, where actL is the unthresholded output of the last layer
+	* Let e = sum over all output neurons |ansL-actL|, where actL is the unthresholded output of the last layer
 	* Then e is basically giving the L1 norm over all output neurons of a particular training case
 	* error_rate computes average of e over the last 100 training cases, i.e. moving average */
 	
 	//The following variables store information about all output neurons
-	real  net_a_out[n[L-1]-1:0], //Actual 32-bit output of network
+	real  actL_alln_calc[n[L-1]-1:0], //Actual 32-bit output of network
 			//actans_diff[cpc-3:0],
 			//spL[n[L-1]-1:0],
 			//zL[n[L-1]-1:0], //output layer z, i.e. just before taking final sigmoid
-			delta[n[L-1]-1:0]; //a-y
-	integer net_y_out[n[L-1]-1:0]; //Ideal output y
+			actans_diff_alln_calc[n[L-1]-1:0]; //act-ans
+	integer ansL_alln_calc[n[L-1]-1:0]; //Ideal output ans0_tc
 	
 	//The following variables store information of the 0th cycle (when cycle_index = 2 out of 17) as fed to the update processor
 	real  wb1[z[L-2]+z[L-2]/fi[L-2]-1:0], //pre-update weights = z[L-2] + biases = z[L-2]/fi[L-2]
 			//del_wb1[z[L-2]+z[L-2]/fi[L-2]-1:0], //updated weights and biases
-			a1[z[L-2]-1:0]; //activations (which get multiplied by deltas for weight updates)
+			act1[z[L-2]-1:0]; //activations (which get multiplied by deltas for weight updates)
 	////////////////////////////////////////////////////////////////////////////////////
 
 	////////////////////////////////////////////////////////////////////////////////////
@@ -267,7 +267,7 @@ module tb_DNN #(
 	always @(negedge clk) begin
 		if (cycle_index==2) begin
 			for (q=0;q<z[L-2];q=q+1) begin //Weights and activations
-				a1[q] = DNN.hidden_layer_block_1.UP_processor.act_in[q]/2.0**frac_bits;
+				act1[q] = DNN.hidden_layer_block_1.UP_processor.act_in[q]/2.0**frac_bits;
 				wb1[q] = DNN.hidden_layer_block_1.UP_processor.wt[q]/2.0**frac_bits;
 				//del_wb1[q] = DNN.hidden_layer_block_1.UP_processor.delta_wt[q]/2.0**frac_bits;
 			end
@@ -276,12 +276,12 @@ module tb_DNN #(
 				//del_wb1[q] =DNN.hidden_layer_block_1.UP_processor.delta_bias[q-z[L-2]]/2.0**frac_bits;
 			end
 		end
-		if (cycle_index>1) begin //Actual output, ideal output, delta
-			net_a_out[cycle_index-2] = DNN.actL1/2.0**frac_bits;
-			net_y_out[cycle_index-2] = y_out; //Division is not required because it is not in bit form
+		if (cycle_index>1) begin //Actual output, ideal output, actans_diff_alln_calc
+			actL_alln_calc[cycle_index-2] = DNN.actL1/2.0**frac_bits;
+			ansL_alln_calc[cycle_index-2] = ansL; //Division is not required because it is not in bit form
 			// spL[cycle_index-2] = DNN.output_layer_block.adot_in/2.0**frac_bits;
 			// The next 2 values occur as packed inside src (which can't be signed), so we need to separate 1 unsigned value
-			delta[cycle_index-2] = DNN.output_layer_block.del[width-1:0]/2.0**frac_bits - DNN.output_layer_block.del[width-1]*2.0**(1+int_bits);
+			actans_diff_alln_calc[cycle_index-2] = DNN.output_layer_block.del[width-1:0]/2.0**frac_bits - DNN.output_layer_block.del[width-1]*2.0**(1+int_bits);
 			// actans_diff[cycle_index-2] = DNN.output_layer_block.actans_diff[width-1:0]/2.0**frac_bits - DNN.output_layer_block.actans_diff[width-1]*2.0**(1+int_bits);
 		end
 		/*if (cycle_index>0 && cycle_index<=cpc-2) begin //z of output layer
@@ -306,8 +306,8 @@ module tb_DNN #(
 		recent = recent - crt[crt_pt]; //crt[crt_pt] is the value about to be replaced 
 		correct = 1; //temporary placeholder
 		for (q=0; q<n[L-1]; q=q+1) begin
-			//if((net_a_out[q]>0.5 && net_y_out[q]<0.5)||(net_a_out[q]<0.5 && net_y_out[q]>0.5)) correct=0; //If any output neuron has wrong threshold value, whole thing becomes wrong
-			if (a_out[q]!=net_y_out[q]) correct=0;
+			//if((actL_alln_calc[q]>0.5 && ansL_alln_calc[q]<0.5)||(actL_alln_calc[q]<0.5 && ansL_alln_calc[q]>0.5)) correct=0; //If any output neuron has wrong threshold value, whole thing becomes wrong
+			if (actL_alln[q]!=ansL_alln_calc[q]) correct=0;
 		end
 		crt[crt_pt] = correct;
 		recent = recent + crt[crt_pt]; //Update recent with value just stored
@@ -315,7 +315,7 @@ module tb_DNN #(
 		total_correct = total_correct + correct;
 		
 		EMS = 0;
-		for (q=0; q<n[L-1]; q=q+1) EMS = delta[q]*delta[q] + EMS;
+		for (q=0; q<n[L-1]; q=q+1) EMS = actans_diff_alln_calc[q]*actans_diff_alln_calc[q] + EMS;
 		EMS = EMS * 100;
 		//error_rate <= 0;
 	
@@ -325,19 +325,19 @@ module tb_DNN #(
 		// Write to log file - Everything
 		$fdisplay (log_file,"-----------------------------train: %d", num_train);
 		$fwrite (log_file, "ideal       output:");
-		for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %5d", net_y_out[q]); $fwrite (log_file, "\n");
+		for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %5d", ansL_alln_calc[q]); $fwrite (log_file, "\n");
 		$fwrite (log_file, "actual      output:");
-		for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %5d", a_out[q]); $fwrite (log_file, "\n");
+		for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %5d", actL_alln[q]); $fwrite (log_file, "\n");
 		$fwrite (log_file, "actual real output:");
-		for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %1.4f", net_a_out[q]); $fwrite (log_file, "\n");
-		$fwrite (log_file, "delta:            ");
-		for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %1.4f", delta[q]); $fwrite (log_file, "\n");
+		for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %1.4f", actL_alln_calc[q]); $fwrite (log_file, "\n");
+		$fwrite (log_file, "actans_diff_alln_calc:            ");
+		for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %1.4f", actans_diff_alln_calc[q]); $fwrite (log_file, "\n");
 		//$fwrite (log_file, "z:            ");
 		//for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %1.4f", zL[q]); $fwrite (log_file, "\n");
 		//$fwrite (log_file, "spL:          ");
 		//for(q=0; q<n[L-1]; q=q+1) $fwrite (log_file, "\t %1.4f", spL[q]); $fwrite (log_file, "\n");
-		//$fwrite (log_file, "a1:     ");
-		//for(q=0; q<z[L-2]; q=q+1) $fwrite (log_file, "\t %1.3f", a1[q]); $fwrite (log_file, "\n");
+		//$fwrite (log_file, "act1:     ");
+		//for(q=0; q<z[L-2]; q=q+1) $fwrite (log_file, "\t %1.3f", act1[q]); $fwrite (log_file, "\n");
 		$fwrite (log_file, "w12:     ");
 		for(q=0; q<z[L-2]; q=q+1) $fwrite (log_file, "\t %1.3f", wb1[q]); $fwrite (log_file, "\n");
 		$fwrite (log_file, "b2:     ");
@@ -360,10 +360,10 @@ module tb_DNN #(
 	////////////////////////////////////////////////////////////////////////////////////
 	
 	/* always @(posedge clk) begin
-		if (cycle_index > 1 && a_out != y_out) tc_error = 1; //Since output is obtained starting from cycle 2 up till cycle (cpc-1)
+		if (cycle_index > 1 && actL_alln != ansL) tc_error = 1; //Since output is obtained starting from cycle 2 up till cycle (cpc-1)
 		if( cycle_index > 1)
 			// Need to divide actL by 2**frac_bits to get result between 0 and 1
-			if(y_out) error_rate = error_rate + y_out - DNN.actL1/(2**frac_bits); //y_out = 1, so |y_out-actL| = 1-actL
-			else error_rate = error_rate + DNN.actL1/(2**frac_bits); //y_out = 0, so |y_out-actL| = actL
+			if(ansL) error_rate = error_rate + ansL - DNN.actL1/(2**frac_bits); //ansL = 1, so |ansL-actL| = 1-actL
+			else error_rate = error_rate + DNN.actL1/(2**frac_bits); //ansL = 0, so |ansL-actL| = actL
 	end */
 endmodule
