@@ -4,6 +4,14 @@
 //`define QUADCOST
 `define XENTCOST
 
+/* Notes:
+*	coll is at all collections level. All state machine signals are at collection level. Memory input output data is also at collection level
+*	mem is at 1 collection, i.e. z memories level. This is usually obtained from passing collection level through a collection-choosing MUX
+*	None of the above words implies single value level
+*	Variables marked as FF, BP, UP without the prefix r or w (i.e. _BP_, not _rBP_) means input or output to processors
+*	act_in in input layer means data is width_in bits as opposed to width bits
+*/
+
 module input_layer_block #(
 	parameter p = 16, //No. of neurons in this input layer
 	parameter n = 8, //No. of neurons in following layer
@@ -47,8 +55,8 @@ module input_layer_block #(
 	wire [width*z-1:0] act_FF_in, act_UP_in; //convert to width bits act values for processor set usage
 	wire [width*z-1:0] wt, wt_UP;	//old and new weights
 	wire [width*z/fi-1:0] bias, bias_UP; //old and new biases
-	wire [width_in*collection*z-1:0] act_mem_in, act_mem_out; //act memory in/out
-	wire [width_in*z-1:0] act_coll_rFF, act_coll_rUP;	//activation output after collection selected
+	wire [width_in*collection*z-1:0] act_coll_in, act_coll_out; //act memory in/out
+	wire [width_in*z-1:0] act_mem_rFF, act_mem_rUP;	//activation output after collection selected
 
 
 // Input Layer State Machine (L=1): 
@@ -76,13 +84,13 @@ module input_layer_block #(
 		.reset(reset),
 		.cycle_index(cycle_index),
 		.cycle_clk(cycle_clk),
-		.data_in(act_in),
-		.act_addr_package(act_coll_addr),
-		.act_we_package(act_coll_we),
-		.actual_mux_sel(act_mem_muxsel), 
-		.data_in_mem(act_mem_in),
-		.actual_rFF_pt(act_coll_rFF_pt),
-		.actual_rUP_pt(act_coll_rUP_pt)
+		.act_in(act_in),
+		.act_coll_addr(act_coll_addr),
+		.act_coll_we(act_coll_we),
+		.act_muxsel_final(act_mem_muxsel), 
+		.act_coll_in(act_coll_in),
+		.act_coll_rFF_pt_final(act_coll_rFF_pt),
+		.act_coll_rUP_pt_final(act_coll_rUP_pt)
 	);
 	
 // Weight and Bias Memory Controller
@@ -119,8 +127,8 @@ module input_layer_block #(
 		.clk(clk), 
 		.we_package(act_coll_we),
 		.addr_package(act_coll_addr), 
-		.data_in_package(act_mem_in),
-		.data_out_package(act_mem_out)
+		.data_in_package(act_coll_in),
+		.data_out_package(act_coll_out)
 	);
 
 	dual_port_mem_collection #( //WBM. Just 1 collection. Port A used for readel_ing, port B for writing
@@ -209,21 +217,21 @@ module input_layer_block #(
 	mux #( //Select AM collection for FF
 		.width(width_in*z), //Read out z activations, each is  width_in bits (since input is width_in bits)
 		.N(collection)) FFcoll_sel
-		(act_mem_out, act_coll_rFF_pt, act_coll_rFF);
+		(act_coll_out, act_coll_rFF_pt, act_mem_rFF);
 
 	mux #( //Select AM collection for UP
 		.width(width_in*z), 
 		.N(collection)) UPcoll_sel
-		(act_mem_out, act_coll_rUP_pt, act_coll_rUP);
+		(act_coll_out, act_coll_rUP_pt, act_mem_rUP);
 
 	mux_set #(
 		.width(width_in), //Within collection, select AM for FF
 		.N(z)) rFF_mux
-		(act_coll_rFF, act_mem_muxsel, act_in_FF_in);
+		(act_mem_rFF, act_mem_muxsel, act_in_FF_in);
 
 	mux_set #(.width(width_in), //Within collection, select AM for UP
 		.N(z)) rUP_mux
-		(act_coll_rUP, act_mem_muxsel, act_in_UP_in);
+		(act_mem_rUP, act_mem_muxsel, act_in_UP_in);
 endmodule
 
 // __________________________________________________________________________________________________________ //
@@ -263,9 +271,9 @@ module hidden_layer_block #(
 	wire [collection*z-1:0] act_coll_we;	//AMp collection write enable
 	wire [2*z*$clog2(p/z)-1:0] del_coll_addrA, del_coll_addrB; //DMp collection address
 	wire [2*z-1:0] del_coll_weA, del_coll_weB; //DMp collection write enable
-	wire [width*2*z-1:0] del_coll_inB; //DMp write back data
+	wire [width*2*z-1:0] del_coll_partial_inB; //DMp write back data
 	wire [$clog2(collection)-1:0] act_coll_rFF_pt, act_coll_rUP_pt; //AMp collection select signals for reading in FF and UP
-	wire del_coll_del_coll_r_pt; //DMp collection select signal for reading for previous BP. Negation of this is used for writing current BP
+	wire del_coll_rBP_pt; //DMp collection select signal for reading for previous BP. Negation of this is used for writing current BP
 	wire [$clog2(z)*z-1:0] act_mem_muxsel, del_mem_muxsel; //For interleavers
 	wire [$clog2(cpc)-1:0] cycle_index_delay;
 	
@@ -278,14 +286,14 @@ module hidden_layer_block #(
 	wire [width*z-1:0] act_FF_in, act_UP_in, adot_BP_in; //width bit act values for processor set usage. Note that they are already extended to width bits, unlike input layer
 	wire [width*z-1:0] wt, wt_UP;	//old and new weights
 	wire [width*z/fi-1:0] bias, bias_UP;	//old and new biases
-	wire [width*collection*z-1:0] act_mem_in, act_mem_out; //AMp in/out
-	wire [width*z-1:0] act_coll_rFF, act_coll_rUP; //activation output after collection selected
-	wire [width*collection*z-1:0] adot_mem_in, adot_mem_out; //SMp in/out
-	wire [width*z-1:0] adot_coll_rBP;	//sp output after collection selected
-	wire [width*z-1:0] del_coll_BP;	//del after collection selected for previous layer BP
-	wire [width*z-1:0] del_coll_partial_BP; //del after collection selected to BP_processor for current layer BP
+	wire [width*collection*z-1:0] act_coll_in, act_coll_out; //AMp in/out
+	wire [width*z-1:0] act_mem_rFF, act_mem_rUP; //activation output after collection selected
+	wire [width*collection*z-1:0] adot_coll_in, adot_coll_out; //SMp in/out
+	wire [width*z-1:0] adot_mem_rBP;	//sp output after collection selected
+	wire [width*z-1:0] del_mem_rBP;	//del after collection selected for previous layer BP
+	wire [width*z-1:0] del_mem_partial_rBP; //del after collection selected to BP_processor for current layer BP
 	wire [width*z-1:0] del_partial_BP_in, del_BP_out; //partial del in/out for BP_processor
-	wire [width*z*2-1:0] del_mem_inA, del_mem_inB;	//DMp in/out
+	wire [width*z*2-1:0] del_coll_inA, del_coll_inB;	//DMp in/out
 	wire [width*z-1:0] del_mem_partial_BP; //partial del after re-order to del memory
 
 
@@ -315,23 +323,23 @@ module hidden_layer_block #(
 		.reset(reset),
 		.cycle_index(cycle_index),
 		.cycle_clk(cycle_clk),
-		.act_data_in(act_in),
-		.sp_data_in(adot_in),
-		.act_addr_package(act_coll_addr),
-		.act_we_package(act_coll_we),
-		.act_data_in_mem(act_mem_in),
-		.sp_data_in_mem(adot_mem_in), 
-		.d_addrA_package(del_coll_addrA),
-		.d_weA_package(del_coll_weA),
-		.d_addrB_package(del_coll_addrB),
-		.d_weB_package(del_coll_weB),
-		.d_mem_inB(del_coll_inB),
-		.actual_mux_sel(act_mem_muxsel),
-		.actual_d_mux_sel(del_mem_muxsel),
-		.actual_rFF_pt(act_coll_rFF_pt),
-		.actual_rUP_pt(act_coll_rUP_pt),
-		.d_r_pt(del_coll_del_coll_r_pt),
-		.cycle_index_delay(cycle_index_delay)
+		.act_in(act_in),
+		.adot_in(adot_in),
+		.act_coll_addr(act_coll_addr),
+		.act_coll_we(act_coll_we),
+		.act_coll_in(act_coll_in),
+		.adot_coll_in(adot_coll_in), 
+		.del_coll_addrA(del_coll_addrA),
+		.del_coll_weA(del_coll_weA),
+		.del_coll_addrB(del_coll_addrB),
+		.del_coll_weB(del_coll_weB),
+		.del_coll_partial_inB(del_coll_partial_inB),
+		.act_muxsel_final(act_mem_muxsel),
+		.del_muxsel_final(del_mem_muxsel),
+		.act_coll_rFF_pt_final(act_coll_rFF_pt),
+		.act_coll_rUP_pt_final(act_coll_rUP_pt),
+		.del_coll_rBP_pt(del_coll_rBP_pt),
+		.cycle_index_delay2(cycle_index_delay)
 	);
 
 // Weight and Bias Memory Controller
@@ -373,8 +381,8 @@ module hidden_layer_block #(
 		.clk(clk), 
 		.we_package(act_coll_we),
 		.addr_package(act_coll_addr), 
-		.data_in_package(act_mem_in),
-		.data_out_package(act_mem_out)
+		.data_in_package(act_coll_in),
+		.data_out_package(act_coll_out)
 	);
 
 	mem_collection #(
@@ -386,8 +394,8 @@ module hidden_layer_block #(
 		.clk(clk), 
 		.we_package(act_coll_we),
 		.addr_package(act_coll_addr), 
-		.data_in_package(adot_mem_in),
-		.data_out_package(adot_mem_out)
+		.data_in_package(adot_coll_in),
+		.data_out_package(adot_coll_out)
 	);
 
 	dual_port_mem_collection #(
@@ -419,11 +427,11 @@ module hidden_layer_block #(
 		.weA_package(del_coll_weA),
 		.addrA_package(del_coll_addrA),
 		.data_inA_package({del_mem_partial_BP, del_mem_partial_BP}), //Write back replicated value just to make vector widths match. In reality, 1 of the write enables is always 0, so nothing is written
-		.data_outA_package(del_mem_inA), 
+		.data_outA_package(del_coll_inA), 
 		.weB_package(del_coll_weB),
 		.addrB_package(del_coll_addrB),
-		.data_inB_package(del_coll_inB),
-		.data_outB_package(del_mem_inB)
+		.data_inB_package(del_coll_partial_inB),
+		.data_outB_package(del_coll_inB)
 	);
 
 
@@ -488,47 +496,47 @@ module hidden_layer_block #(
 // MUXes
 	mux #(.width(width*z), //select AMp collection for FF
 		.N(collection)) FFcoll_sel
-		(act_mem_out, act_coll_rFF_pt, act_coll_rFF);
+		(act_coll_out, act_coll_rFF_pt, act_mem_rFF);
 
 	mux #(.width(width*z), //select AMp collection for UP
 		.N(collection)) UPcoll_sel
-		(act_mem_out, act_coll_rUP_pt, act_coll_rUP);
+		(act_coll_out, act_coll_rUP_pt, act_mem_rUP);
 
 	mux_set #(.width(width), //set of MUXes to choose SRAM inside a collection for FF
 		.N(z)) rFF_mux
-		(act_coll_rFF, act_mem_muxsel, act_FF_in);
+		(act_mem_rFF, act_mem_muxsel, act_FF_in);
 
 	mux_set #(.width(width), //set of MUXes to choose SRAM inside a collection for UP
 		.N(z)) rUP_mux
-		(act_coll_rUP, act_mem_muxsel, act_UP_in);
+		(act_mem_rUP, act_mem_muxsel, act_UP_in);
 
 	mux #(.width(width*z), //select SMp collection for BP. Note that it uses act_coll_rUP_pt, same as what was used in AMp
 		.N(collection)) spcoll_sel
-		(adot_mem_out, act_coll_rUP_pt, adot_coll_rBP);
+		(adot_coll_out, act_coll_rUP_pt, adot_mem_rBP);
 
 	mux_set #(.width(width), //set of MUXes to choose SRAM inside a collection for BP
 		.N(z)) adot_rBP_mux
-		(adot_coll_rBP, act_mem_muxsel, adot_BP_in);
+		(adot_mem_rBP, act_mem_muxsel, adot_BP_in);
 
 	mux #(.width(width*z), //select DMp collection for current BP
 		.N(2)) currentBPcoll_sel
-		(del_mem_inB, ~del_coll_del_coll_r_pt, del_coll_partial_BP); //del_mem_inB is output of all collections. del_coll_partial_BP is output of chosen colleciton
+		(del_coll_inB, ~del_coll_rBP_pt, del_mem_partial_rBP); //del_coll_inB is output of all collections. del_mem_partial_rBP is output of chosen colleciton
 
 	mux_set #(.width(width), //Interleaver mux set for read out from BP
-		.N(z)) d_w_inter
-		(del_coll_partial_BP, act_mem_muxsel, del_partial_BP_in);
+		.N(z)) del_w_inter
+		(del_mem_partial_rBP, act_mem_muxsel, del_partial_BP_in);
 
 	mux_set #(.width(width), //De-Interleaver mux set for write back to BP
-		.N(z)) d_writeback_mux
+		.N(z)) del_partial_mux
 		(del_BP_out, del_mem_muxsel, del_mem_partial_BP);
 
 	mux #(.width(width*z), //select DMp collecton for previous BP
 		.N(2)) previousBPcoll_sel
-		(del_mem_inA, del_coll_del_coll_r_pt, del_coll_BP);
+		(del_coll_inA, del_coll_rBP_pt, del_mem_rBP);
 
 	mux #(.width(width*z/fo), // This mux is to segment prev mux values into cpc-2 chunks and feed them sequentially to prev layer
-		.N(fo)) d_r_sel
-		(del_coll_BP, cycle_index_delay[$clog2(fo)-1:0], del_out);
+		.N(fo)) del_r_sel
+		(del_mem_rBP, cycle_index_delay[$clog2(fo)-1:0], del_out);
 endmodule
 
 // __________________________________________________________________________________________________________ //
@@ -559,13 +567,13 @@ module output_layer_block #(
 //State Machine and cycle_index DFF outputs
 	wire [2*z*$clog2(p/z)-1:0] del_coll_addr;	//all DMp addresses
 	wire [2*z-1:0] del_coll_we; //all DMp write enable signal
-	wire del_coll_r_pt; //DMp collection select signal
+	wire del_coll_rBP_pt; //DMp collection select signal
 	wire [$clog2(cpc)-1:0] cycle_index_delay;
 	
 //Datapath signals: MUXes, memories, cost calculators
 	wire [width*z-1:0] actans_diff; //just what it says. Used in cost calculation
 	wire [width*z-1:0] del; //computed del value, to be written to DMp. This is input to state machine
-	wire [width*2*z-1:0] del_mem_in, del_mem_out;	//del memory in/out
+	wire [width*2*z-1:0] del_coll_in, del_coll_out;	//del memory in/out
 
 	//max activation value computation
 	wire [width-1:0] max_act;
@@ -592,11 +600,11 @@ module output_layer_block #(
 		.reset(reset),
 		.cycle_index(cycle_index),
 		.cycle_clk(cycle_clk),
-		.data_in(del),
-		.addr_package(del_coll_addr),
-		.we_package(del_coll_we), 
-		.data_in_mem_package(del_mem_in),
-		.r_pt(del_coll_r_pt)
+		.del_in(del),
+		.del_coll_addr(del_coll_addr),
+		.del_coll_we(del_coll_we), 
+		.del_coll_in(del_coll_in),
+		.del_coll_rBP_pt(del_coll_rBP_pt)
 	);
 	
 // Delay cycle_index
@@ -620,8 +628,8 @@ module output_layer_block #(
 		.clk(clk), 
 		.we_package(del_coll_we),
 		.addr_package(del_coll_addr), 
-		.data_in_package(del_mem_in),
-		.data_out_package(del_mem_out)
+		.data_in_package(del_coll_in),
+		.data_out_package(del_coll_out)
 	);
 
 
@@ -664,7 +672,7 @@ module output_layer_block #(
 // Collection choosing MUX
 	mux #(.width(width*z), 
 		.N(2)) r_collection
-		(del_mem_out, del_coll_r_pt, del_out); //choose collection and output chosen del value to previous layer
+		(del_coll_out, del_coll_rBP_pt, del_out); //choose collection and output chosen del value to previous layer
 
 
 	// Threshold width bit outputs to get 1b outputs (DEPENDING ON ACTIVATION)

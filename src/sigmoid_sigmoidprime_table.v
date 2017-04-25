@@ -4,7 +4,7 @@
 
 `timescale 1ns/100ps
 
-module sigmoid_t #(
+module sigmoid_table #(
 	parameter width = 10,
 	parameter int_bits = 2,
 	parameter frac_bits = width-int_bits-1,
@@ -13,29 +13,29 @@ module sigmoid_t #(
 	parameter lut_size = (2**width>4096) ? 4096 : 2**width //no. of cells in LUT
 )(
 	input clk,
-	input signed [width-1:0] z,
-	output reg [width-1:0] sigmoid_out
+	input signed [width-1:0] val,
+	output reg [width-1:0] sigmoid_out //processed sigmoid value
 );
-	reg [frac_bits-1:0] sigmoid;
+	reg [frac_bits-1:0] sigmoid; //raw sigmoid value
 
 	/*always @(posedge clk)
-		if(z[width-1]==1|| z==0 )
-			sigmoid_out = (z[width-1:width-int_bits+2] == 0 || (&z[width-1:width-int_bits+2] ))?
+		if(val[width-1]==1|| val==0 )
+			sigmoid_out = (val[width-1:width-int_bits+2] == 0 || (&val[width-1:width-int_bits+2] ))?
 			{{(int_bits+1){1'b0}}, sigmoid}: 
-			(z[width-1])?  1: {1'b1, {(frac_bits){1'b0}}}-1;
+			(val[width-1])?  1: {1'b1, {(frac_bits){1'b0}}}-1;
 		else
-			sigmoid_out = z;*/
+			sigmoid_out = val;*/
 
 	always @(posedge clk) begin
-		sigmoid_out = (z[width-1:width-int_bits+$clog2(maxdomain)-1] == 0 || &z[width-1:width-int_bits+$clog2(maxdomain)-1]) ? // Only calculate sigmoid for the domain z = [-maxdomain,+maxdomain). So check all MSB till there. If all 0, z<8. If all 1, z>=-8
-		{{(int_bits+1){1'b0}}, sigmoid} : //If z is within [-maxdomain,+maxdomain), insert all 0s for sign and integer part (since sigmoid is always between 0 and 1) and then frac_bits sigmoid part
-		(z[width-1]) ? //If z is outside the range, sigmoid will be 0 or 1 depending on sign bit
-		1 : //If sign bit is 1, z is negative. Then sigmoid is all zeros followed by 1 at LSB, i.e. 2^(-frac_bits), which is the lowest number possible (~=0)
-		{{(int_bits+1){1'b0}},{(frac_bits){1'b1}}}; //If sign bit is 0, z is positive. Then sigmoid is all 1s in the fractional part, i.e. 1-2^(-frac_bits), which is the highest number possible (~=1)
+		sigmoid_out = (val[width-1:width-int_bits+$clog2(maxdomain)-1] == 0 || &val[width-1:width-int_bits+$clog2(maxdomain)-1]) ? // Only calculate sigmoid for the domain val = [-maxdomain,+maxdomain). So check all MSB till there. If all 0, val<8. If all 1, val>=-8
+		{{(int_bits+1){1'b0}}, sigmoid} : //If val is within [-maxdomain,+maxdomain), insert all 0s for sign and integer part (since sigmoid is always between 0 and 1) and then frac_bits sigmoid part
+		(val[width-1]) ? //If val is outside the range, sigmoid will be 0 or 1 depending on sign bit
+		1 : //If sign bit is 1, val is negative. Then sigmoid is all zeros followed by 1 at LSB, i.e. 2^(-frac_bits), which is the lowest number possible (~=0)
+		{{(int_bits+1){1'b0}},{(frac_bits){1'b1}}}; //If sign bit is 0, val is positive. Then sigmoid is all 1s in the fractional part, i.e. 1-2^(-frac_bits), which is the highest number possible (~=1)
 	end
 
-	always @(z[frac_bits+$clog2(maxdomain):frac_bits-$clog2(lut_size)+$clog2(maxdomain)+1]) //this ensures that we read exactly log(lut_size) bits as address of LUT
-	case (z[frac_bits+$clog2(maxdomain):frac_bits-$clog2(lut_size)+$clog2(maxdomain)+1])
+	always @(val[frac_bits+$clog2(maxdomain):frac_bits-$clog2(lut_size)+$clog2(maxdomain)+1]) //this ensures that we read exactly log(lut_size) bits as address of LUT
+	case (val[frac_bits+$clog2(maxdomain):frac_bits-$clog2(lut_size)+$clog2(maxdomain)+1])
 
 		10'b1000000000:	sigmoid = 7'b0000010;
 		10'b1000000001:	sigmoid = 7'b0000010;
@@ -1068,7 +1068,7 @@ endmodule
 // __________________________________________________________________________________________________________ //
 // __________________________________________________________________________________________________________ //
 
-module sig_prime #(
+module sigmoid_prime_table #(
 	parameter width = 10, 
 	parameter int_bits = 2,
 	parameter frac_bits = width-int_bits-1,
@@ -1076,30 +1076,30 @@ module sig_prime #(
 	parameter lut_size = (2**width>4096) ? 4096 : 2**width
 )(
 	input clk,
-	input signed [width-1:0] z,
-	output reg[width-1:0] sp_out
+	input signed [width-1:0] val,
+	output reg[width-1:0] sigmoid_prime_out
 );
 
 	reg [frac_bits-3:0] sigmoid_prime; //since 2 MSB in frac_part are always 00
 
 	/*always @(posedge clk)
-	if(z[width-1]==1||z==0)
-		sp_out = (z[width-1:width-int_bits+2] == 0 ||&z[width-1:width-int_bits+2])? 
+	if(val[width-1]==1||val==0)
+		sigmoid_prime_out = (val[width-1:width-int_bits+2] == 0 ||&val[width-1:width-int_bits+2])? 
 			{{(int_bits+1){1'b0}},sigmoid_prime,3'b0}:1;//0;
 	else
-		//sp_out = (z[width-1:width-int_bits+2] == 0 ||&z[width-1:width-int_bits+2])? 
+		//sigmoid_prime_out = (val[width-1:width-int_bits+2] == 0 ||&val[width-1:width-int_bits+2])? 
 		//	{{(int_bits+1){1'b0}},sigmoid_prime,3'b0}:1;
-		sp_out = 1'b1<<frac_bits;*/
+		sigmoid_prime_out = 1'b1<<frac_bits;*/
 	
 	
 	always @(posedge clk) begin
-		sp_out = (z[width-1:width-int_bits+$clog2(maxdomain)-1] == 0 || &z[width-1:width-int_bits+$clog2(maxdomain)-1]) ? 
+		sigmoid_prime_out = (val[width-1:width-int_bits+$clog2(maxdomain)-1] == 0 || &val[width-1:width-int_bits+$clog2(maxdomain)-1]) ? 
 		{{(int_bits+3){1'b0}},sigmoid_prime} : //since 2 MSB in frac_part are always 00
-		1; //If z is outside [-maxdomain,+maxdomain], sigmoid prime will always be 0. This is stored as all zeros followed by 1 at LSB, i.e. 2^(-frac_bits), which is the lowest number possible (~=0)
+		1; //If val is outside [-maxdomain,+maxdomain], sigmoid prime will always be 0. This is stored as all zeros followed by 1 at LSB, i.e. 2^(-frac_bits), which is the lowest number possible (~=0)
 	end
 
-	always @(z[frac_bits+$clog2(maxdomain):frac_bits-$clog2(lut_size)+$clog2(maxdomain)+1]) //this ensures that we read exactly log(lut_size) bits as address of LUT
-	case (z[frac_bits+$clog2(maxdomain):frac_bits-$clog2(lut_size)+$clog2(maxdomain)+1])
+	always @(val[frac_bits+$clog2(maxdomain):frac_bits-$clog2(lut_size)+$clog2(maxdomain)+1]) //this ensures that we read exactly log(lut_size) bits as address of LUT
+	case (val[frac_bits+$clog2(maxdomain):frac_bits-$clog2(lut_size)+$clog2(maxdomain)+1])
 		
 		10'b1000000000:	sigmoid_prime = 5'b00010;
 		10'b1000000001:	sigmoid_prime = 5'b00010;

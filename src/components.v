@@ -353,7 +353,7 @@ module shift_reg #(
 );
 
 	wire [width-1:0] mem [depth-1:0];
-	assign data_out = mem[depth-1];
+	assign data_out = mem [depth-1];
 	
 	genvar i;
 

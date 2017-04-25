@@ -15,8 +15,8 @@ reg [width-1:0] z;
 wire [width-1:0] s;
 wire [width-1:0] sp;
 
-sigmoid_t #(.width(width),.int_bits(int_bits),.frac_bits(frac_bits)) stest (.clk(clk),.z(z),.sigmoid_out(s));
-sig_prime #(.width(width),.int_bits(int_bits),.frac_bits(frac_bits)) sptest (.clk(clk),.z(z),.sp_out(sp));
+sigmoid_table #(.width(width),.int_bits(int_bits),.frac_bits(frac_bits)) stest (.clk(clk),.z(z),.sigmoid_out(s));
+sigmoid_prime_table #(.width(width),.int_bits(int_bits),.frac_bits(frac_bits)) sptest (.clk(clk),.z(z),.sp_out(sp));
 
 initial begin
 z = 0;

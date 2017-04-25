@@ -134,8 +134,8 @@ module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 					(s_raw[width_TA-1]==1 && s_raw[width_TA-2:width-1]!={(width_TA-width){1'b1}}) ? //If no, now check that s_raw is negative and less than max negative width-bit value
 					{1'b1, {(width-1){1'b0}}} : //If yes, assign s to the max negative width-bit value
 					s_raw[width-1:0]; //If still no, then s_raw is between the limits allowed by width bits. So just assign s to the LSB width bits of s_raw
-	sigmoid_t #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) s_table (clk, s, sigmoid);
-	sig_prime #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) sp_table (clk, s, sp);
+	sigmoid_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) s_table (clk, s, sigmoid);
+	sigmoid_prime_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) sp_table (clk, s, sp);
 endmodule
 
 // __________________________________________________________________________________________________________ //
