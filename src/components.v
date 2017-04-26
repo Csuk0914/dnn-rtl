@@ -302,24 +302,6 @@ module max_finder_set #(
 endmodule
 
 
-// This is a parallel register with asynchronous reset, i.e. width 1-bit DFFs
-// Changing to synchronous reset by deleting @posedge reset does NOT work [TODO] WHY??
-module DFF #(
-	parameter width = 16 //No. of DFFs in parallel
-)(
-	input clk,
-	input reset,
-	input [width-1:0] d,
-	output reg [width-1:0] q
-);
-	always @(posedge clk, posedge reset) begin
-		if (reset)
-			q <= {width{1'b0}};
-		else
-			q <= d;
-	end
-endmodule
-
 `ifdef SYNCFF
 // This is a parallel register with synchronous reset, i.e. width 1-bit DFFs
 // [TODO] Use this for all DFFs not triggered by cycle_clk, i.e. use for all clk triggered DFFs
@@ -340,6 +322,32 @@ module DFF_syncreset #(
 endmodule
 `endif
 
+// This is a parallel register with asynchronous reset, i.e. width 1-bit DFFs
+module DFF #(
+	parameter width = 16 //No. of DFFs in parallel
+)(
+	input clk,
+	input reset,
+	input [width-1:0] d,
+	output reg [width-1:0] q = {width{1'b0}}
+);
+	always @(posedge clk, posedge reset) begin
+		if (reset)
+			q <= {width{1'b0}};
+		else
+			q <= d;
+	end
+endmodule
+
+module DFF_no_reset #(
+	parameter width = 16 //No. of DFFs in parallel
+)(
+	input clk,
+	input [width-1:0] d,
+	output reg [width-1:0] q = {width{1'b0}}
+);
+	always @(posedge clk) q <= d;
+endmodule
 
 // This is a serial bank of parallel registers, i.e. depth banks, each bank has width 1-bit async DFFs
 module shift_reg #(
@@ -350,31 +358,54 @@ module shift_reg #(
 	input reset,
 	input [width-1:0] data_in,
 	output [width-1:0] data_out
+	// output reg [width-1:0] data_out = {width{1'b0}} //For alternate code using register logic
 );
 
-	wire [width-1:0] mem [depth-1:0];
-	assign data_out = mem [depth-1];
+	wire [width-1:0] mem [0:depth-1];
 	
-	genvar i;
-
 	DFF #( //1st DFF
 		.width(width)
-	) shift_reg_0 (
+	) sr_dff_first (
 		.clk(clk),
 		.reset(reset),
 		.d(data_in),
 		.q(mem[0])
 	);
-	generate for (i=1; i<depth; i=i+1)
+
+	genvar gv_i;
+	generate for (gv_i=1; gv_i<depth-1; gv_i=gv_i+1)
 	begin: shift_reg
-		DFF #( //another depth-1 DFFs
+		DFF_no_reset #( //other DFFs
 			.width(width)
-		) shift_reg_dff (
+		) sr_dffs_mid (
 			.clk(clk),
-			.reset(reset),
-			.d(mem[i-1]),
-			.q(mem[i])
+			//.reset(reset),
+			.d(mem[gv_i-1]),
+			.q(mem[gv_i])
 		);
 	end
 	endgenerate
+
+	DFF_no_reset #( //last DFF
+		.width(width)
+	) sr_dff_last (
+		.clk(clk),
+		//.reset(reset),
+		.d(mem[depth-2]),
+		.q(data_out)
+	);
+
+	/* Alternate code using register logic
+	reg [width-1:0] mem [0:depth-2];
+	integer i;
+	always @(posedge clk, posedge reset) begin
+		if (reset)
+			data_out <= {width{1'b0}};
+		else begin
+			mem[0] <= data_in;
+			for (i=1; i<depth-1; i=i+1)
+				mem[i] <= mem[i-1];
+			data_out <= mem[depth-2];
+		end
+	end */
 endmodule

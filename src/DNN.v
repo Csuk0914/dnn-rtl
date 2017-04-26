@@ -173,14 +173,14 @@ module DNN #( // Parameter arrays need to be [31:0] for compilation
 		.data_in(etapos0), 
 		.data_out(etaposL1));
 
-	shift_reg #( //1st junction gets updated 1 block cycle after 2nd (using same etapos)
-		.width($clog2(frac_bits+2)), 
-		.depth(1)
-	) etapos_SR1 (
-		.clk(cycle_clk), 
-		.reset(reset), 
-		.data_in(etaposL1), 
-		.data_out(etapos1));	
+	DFF_no_reset #( //1st junction gets updated 1 block cycle after 2nd (using same etapos)
+		.width($clog2(frac_bits+2))
+	) etapos_DFF (
+		.clk(cycle_clk),
+		//.reset(reset),
+		.d(etaposL1),
+		.q(etapos1)
+	);
 endmodule
 
 /*integer cycle = 0;

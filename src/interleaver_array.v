@@ -1,8 +1,8 @@
 // Implementing rs_chng + rsweep_chng interleaver
 `timescale 1ns/100ps
 
-`define MNIST
-//`define SMALLNET
+//`define MNIST
+`define SMALLNET
 
 module interleaver_set #(
 	parameter fo = 2,

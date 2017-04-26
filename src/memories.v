@@ -1,7 +1,7 @@
 // This file contains a number of different types of memories
 `timescale 1ns/100ps
 
-`define SIM //Comment this for synthesis
+//`define SIM //Comment this for synthesis
 `define INITMEMSIZE 2000 //number of elements in gaussian_list
 
 //basic single port memory module

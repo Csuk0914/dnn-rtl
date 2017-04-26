@@ -91,7 +91,8 @@ module tb_DNN #(
 	////////////////////////////////////////////////////////////////////////////////////
 	initial begin
 		//#1 reset = 1;	
-		#81 reset = 0;
+		#(cpc*L*`CLOCKPERIOD + 1) reset = 0;
+		//max shift reg depth is cpc*(L-1). So lower reset after even the deepest DFFs in the shift regs have time to latch 0 from previous stages
 	end
 
 	// Get etapos from Eta
