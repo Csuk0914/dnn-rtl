@@ -547,7 +547,7 @@ module output_layer_block #(
 	input cycle_clk,
 	input [width*z-1:0] actL, //from prev
 	input [width*z-1:0] spL, //from prev
-	// [todo] spL is only used for quadcost. If xentcost is always used, this can be dispensed with, but may lead to significant code revision
+	// [TODO] spL is only used for quadcost. If xentcost is always used, this can be dispensed with, but may lead to significant code revision
 	input [z-1:0] y, //ideal outputs from beginning
 	output [width*z-1:0] deltaL, //to prev
 	//output [z-1:0] a_out, //actual computed outputs from whole neural network
@@ -668,10 +668,10 @@ module output_layer_block #(
 
 	// Threshold width bit outputs to get 1b outputs (DEPENDING ON ACTIVATION)
 	// Right now this supports activations with only nonnegative values (like sigmoid and relu)
-	// [todo] add support for negative activations like tanh if needed
+	// [TODO] add support for negative activations like tanh if needed
 	/* genvar gv_i;
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
-		begin : a_output //[todo] Insert ifdef for different activations
+		begin : a_output //[TODO] Insert ifdef for different activations
 		// For sigmoid:
 		//assign a_out[gv_i] = actL[gv_i*width+frac_bits-1]|| actL[gv_i*width+frac_bits]; //This picks out the fractional part MSB. Use that to threshold, i.e. if >=0.5, output=1, if <0.5, output is 0	
 		// More general condition

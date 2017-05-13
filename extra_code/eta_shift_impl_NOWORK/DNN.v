@@ -9,7 +9,7 @@
 `define No_hidden_layer 0
 `define hidden_layer_1 1
 `define hidden_layer_2 0
-// [todo] NEED to include ifdef for conditional compile of hidden layers. Is this one-hot??
+// [TODO] NEED to include ifdef for conditional compile of hidden layers. Is this one-hot??
 
 module DNN #(
 	parameter width = 10, //Bit width

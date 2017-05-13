@@ -5,8 +5,8 @@
 
 // Custom made signed multiplier where input and outputs all have same bit width
 // This is achieved by restricting one of the inputs to [0-1]
-//[todo] Extend to [-1,1]
-//[todo] a and d have to be between 0-1 to preserve int_bits, frac_bits. Can this be changed?
+//[TODO] Extend to [-1,1] for tanh, etc
+//[TODO] a and d have to be between 0-1 to preserve int_bits, frac_bits. Can this be changed, so that output need not have width bits?
 module multiplier #(
 	parameter width = 16,
 	parameter int_bits = 5 //No. of bits in integer portion

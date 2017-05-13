@@ -159,7 +159,7 @@ module input_layer_block #(
 	begin: processor_in
 	/* Take the example of MNIST:
 	* Original inputs are in the range 0-1 with 8b precision. So width_in=8
-	* These get multiplied by 256 to get 8b numbers in the range 0-255. This faciliates data feedel_ing
+	* These get multiplied by 256 to get 8b numbers in the range 0-255. This faciliates data feeding
 	* In the RTL, these need to get converted back to original 0-1 range, and then to width bits with int_bits and frac_bits (Eg: 1+5+10 = 16b)
 	* Obviously the sign bit is always 0 and all the int_bits are 0 (since integer part is always 0) => Total (int_bits+1) 0s
 	* The 1st 8 fract_bits are the 8b input data and remaining frac_bits are 0 */
@@ -557,7 +557,7 @@ module output_layer_block #(
 	input cycle_clk,
 	input [width*z-1:0] act_in, //from prev
 	input [width*z-1:0] adot_in, //from prev
-	// [todo] adot_in is only used for quadcost. If xentcost is always used, this can be dispensed with, but may lead to significant code revision
+	// [TODO] adot_in is only used for quadcost. If xentcost is always used, this can be dispensed with, but may lead to significant code revision
 	input [z-1:0] ans_in, //ideal outputs from beginning
 	output [width*z-1:0] del_out, //to prev
 	//output [z-1:0] a_out, //actual computed outputs from whole neural network
@@ -677,10 +677,10 @@ module output_layer_block #(
 
 	// Threshold width bit outputs to get 1b outputs (DEPENDING ON ACTIVATION)
 	// Right now this supports activations with only nonnegative values (like sigmoid and relu)
-	// [todo] add support for negative activations like tanh if needed
+	// [TODO] add support for negative activations like tanh if needed
 	/* genvar gv_i;
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
-		begin : a_output //[todo] Insert ifdef for different activations
+		begin : a_output //[TODO] Insert ifdef for different activations
 		// For sigmoid:
 		//assign a_out[gv_i] = act_in[gv_i*width+frac_bits-1]|| act_in[gv_i*width+frac_bits]; //This picks out the fractional part MSB. Use that to threshold, i.e. if >=0.5, output=1, if <0.5, output is 0	
 		// More general condition

@@ -89,6 +89,6 @@ Location of Files:
 
 CONSTRAINTS:
 	
-	p/z >= 2	
-	fo >= 2	
-	z >= fi [todo] MAYBE add FFs for partial add to alleviate this
+	p = k*z, k >= 2	
+	fo >= 2
+	z = k*fi (since an integral number of output neurons must be processed in 1 cycle [TODO] MAYBE add FFs for partial add to alleviate this)

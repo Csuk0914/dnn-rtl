@@ -31,7 +31,7 @@ module FF_processor_set #(
 	wire [width-1:0] adot_out [z/fi-1:0];
 	
 	wire signed [width-1:0] actwt [z-1:0]; //act*wt
-	wire [width*fi-1:0] actwt_package [z/fi-1:0]; //1 awt_package value for each output neuron (total z/fi). Each has a width-bit value for each fi, so total width*fi
+	wire [width*fi-1:0] actwt_package [z/fi-1:0]; //1 actwt_package value for each output neuron (total z/fi). Each has a width-bit value for each fi, so total width*fi
 	
 	genvar gv_i, gv_j;
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
@@ -113,7 +113,7 @@ module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 		assign partial_s[gv_i] = {{$clog2(fi) {actwt_package[width*(gv_i+1)-1]}}, actwt_package[width*(gv_i+1)-1:width*gv_i]};
 	end
 	endgenerate
-	// [Eg Now partial_s[3,2,1,0] (each 16b) = awt_package[63:48,47:32,31:16,15:0]]
+	// [Eg Now partial_s[3,2,1,0] (each 16b) = actwt_package[63:48,47:32,31:16,15:0]]
 
 	generate for (gv_i = 1; gv_i < $clog2(fi)+1; gv_i = gv_i + 1) //This does tree adder computation, i.e. partial_s[f1] to partial_s[2*fi-2]
 	begin : tree_adder
