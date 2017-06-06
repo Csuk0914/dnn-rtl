@@ -55,13 +55,12 @@ memories.v
 
 	[SIM] define: Uncomment SIM
 	[WtBias Initialization] define: initmemsize should match initmemsize in testbench
-	
+
 interleavers (Assume interleaver_array unless otherwise noted)
 
 	[NC] define: Uncomment used dataset
 	[NC,BW] If interleaver_drp is used, comment out higher m else if statements inside r_dither and w_dither in case of any issue while running smaller DNNs
 
-	
 sigmoid_sigmoidprime_table.v
 
 	[BW] Refer to comments at top of /src/sigmoid_sigmoidprime_table.v and /scripts/actlut_generator.py
@@ -70,7 +69,7 @@ Gaussian lists
 
 	[NC,BW] Regenerate using /src/glorotnormal_init_generator.py
 	Put new files in local Verilog folder on Windows
-	
+
 New datasets [NC]
 
 	Use scripts/create_data to get training input and output files in Vivado format.
@@ -92,3 +91,40 @@ CONSTRAINTS:
 	p = k*z, k >= 2	
 	fo >= 2
 	z = k*fi (since an integral number of output neurons must be processed in 1 cycle [TODO] MAYBE add FFs for partial add to alleviate this)
+
+
+
+Variable naming conventions: (RTL = hardware Verilog, HL = high level Python)
+	
+	act = activation
+	ans (RTL), ideal (HL) = ideal output
+	adot = activation derivative
+	del = delta
+	wt = weight
+	bias = bias
+	actwt = activation * weight
+	FF = feedforward
+	BP = backpropagation
+	UP = update
+	delta = change in value of any quantity. DO NOT confuse with delta values, which are del
+
+	Junction specific:
+	p = # neurons in a layer before a junction
+	n = # neurons in a layer after a junction
+	fo = Fanout
+	fi = Fanin
+	W = Total weights = p*fo = n*fi
+
+	For RTL only:
+	outside to input layer = 0, input-hidden junctio = 1, hidden-output junction = L-1 (=2), output layer to outside = L (=3)
+	within a layer = in for incoming, out for outgoing (regardless of direction, e.g. del_in would come from next layer)
+	package = 1D data which needs to be split into 2D (or vice-versa). This is because Verilog can't handle 2D I/O :'-(
+	calc = Real number value, not Verilog register or wire in bits
+	coll = collection level, i.e. many memory banks
+	mem = memory bank level (Might have different meaning in testbench). In applicable situation with neither coll or mem, it means at a single memory level
+	r = read
+	w = write
+	addr = address
+	pt = pointer
+	we = write enable
+	A, B = ports in dual-port memory

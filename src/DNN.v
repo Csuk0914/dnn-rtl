@@ -1,38 +1,6 @@
 // Sparse interleaved neural network
 // Yinan Shao, Sourya Dey
 
-/* Variable naming conventions:
-
-	outside to input layer = 0, input-hidden junctio = 1, hidden-output junction = L-1 (=2), output layer to outside = L (=3)
-	within a layer = in for incoming, out for outgoing (regardless of direction, e.g. del_in would come from next layer)
-	package = 1D data which needs to be split into 2D (or vice-versa). This is because Verilog can't handle 2D I/O :'-(
-
-	act = activation
-	ans = ideal output
-	adot = activation derivative
-	del = delta
-	wt = weight
-	bias = bias
-	actwt = activation * weight
-
-	FF = feedforward
-	BP = backpropagation
-	UP = update
-	delta = change in value of any quantity. DO NOT confuse with delta values, which are del
-	calc = Real number value, not Verilog register or wire in bits
-
-	coll = collection level, i.e. many memory banks
-	mem = memory bank level (Might have different meaning in testbench)
-	in applicable situation with neither coll or mem, it means at a single memory level
-	r = read
-	w = write
-	addr = address
-	pt = pointer
-	we = write enable
-	A, B = ports in dual-port memory
-*/
-
-
 `timescale 1ns/100ps
 
 //`define MULTIOUT //Uncomment this if z[L-2]/fi[L-2] > 1. Check tb params for z and fi
