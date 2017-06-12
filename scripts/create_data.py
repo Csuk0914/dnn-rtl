@@ -17,8 +17,8 @@ NUM_INPUT_NEURONS = 64
 NUM_OUTPUT_NEURONS = 4
 WIDTH_IN = 8
 
-fin = open(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/data/train_input_{0}'.format(NUM_INPUT_NEURONS)+'.dat','wb')
-fout = open(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/data/train_idealout_{0}'.format(NUM_OUTPUT_NEURONS)+'.dat','wb')
+fin = open(os.path.dirname(os.path.dirname(os.path.realpath('__file__')))+'/data/train_input_{0}'.format(NUM_INPUT_NEURONS)+'.dat','wb')
+fout = open(os.path.dirname(os.path.dirname(os.path.realpath('__file__')))+'/data/train_idealout_{0}'.format(NUM_OUTPUT_NEURONS)+'.dat','wb')
 
 inout_ratio = NUM_INPUT_NEURONS*WIDTH_IN/NUM_OUTPUT_NEURONS
 for nti in xrange(NUM_TRAIN_INPUTS):
@@ -42,7 +42,7 @@ fout.close()
 # Actual program ends here
 
 # Check distribution properties
-fout = open(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))+'/data/train_idealout_{0}'.format(NUM_OUTPUT_NEURONS)+'.dat','rb')
+fout = open(os.path.dirname(os.path.dirname(os.path.realpath('__file__')))+'/data/train_idealout_{0}'.format(NUM_OUTPUT_NEURONS)+'.dat','rb')
 results = np.zeros(4)
 for line in fout:
     if line == '1000\n': results[0]+=1
