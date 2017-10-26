@@ -11,7 +11,7 @@ src - All source code Verilog files. Hierarchy:
 	processor_set.v	-	FF, BP and UP processors
 	components.v	-	Contain adders, multipliers, DFFs, counters, MUXes
 	memories.v	-	Contains single/dual port memory (no parallel, parallel, many collections)
-	interleaver_array.v	-	// Array interleaver to generate memory index, address and mux signals for index
+	interleaver_array.v	-	Array interleaver to generate memory index, address and mux signals for index
 	interleaver_drp.v	-	DRP interleaver
 	sigmoid_sigmoidprime_table.v	-	Look-up table for sigmoid and sigmoid prime function
 
@@ -116,7 +116,7 @@ Variable naming conventions: (RTL = hardware Verilog, HL = high level Python)
 	W = Total weights = p*fo = n*fi
 
 	For RTL only:
-	outside to input layer = 0, input-hidden junctio = 1, hidden-output junction = L-1 (=2), output layer to outside = L (=3)
+	outside to input layer = 0, input-hidden junction = 1, hidden-output junction = L-1 (=2), output layer to outside = L (=3)
 	within a layer = in for incoming, out for outgoing (regardless of direction, e.g. del_in would come from next layer)
 	package = 1D data which needs to be split into 2D (or vice-versa). This is because Verilog can't handle 2D I/O :'-(
 	calc = Real number value, not Verilog register or wire in bits

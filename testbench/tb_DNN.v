@@ -3,8 +3,8 @@
 `define CLOCKPERIOD 10
 `define INITMEMSIZE 2000 //number of elements in gaussian_list
 
-`define MODELSIM
-//`define VIVADO
+//`define MODELSIM
+`define VIVADO
 
 `define MNIST //Dataset
 `define NIN 784 //Number of inputs AS IN DATASET
