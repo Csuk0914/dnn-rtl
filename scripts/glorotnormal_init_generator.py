@@ -3,7 +3,7 @@ import os
 
 def glorotnormal_init_generate(fi, fo, int_bits, frac_bits, filename='s136_frc21_int10'):
     filename_bin = os.path.dirname(os.path.dirname(os.path.realpath('__file__'))) + '/gaussian_list/'+filename+'.dat' #binary file for RTL use
-    filename_dec = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath('__file__')))) + '/dnn-hlsims/network_models/wtbias_initdata/'+filename+'_DEC.dat' #write decimal values to file as well, for hlsims use    
+    filename_dec = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath('__file__')))) + '/dnn-hlsims/network_models/wtbias_initdata/'+filename+'_DEC.dat' #write decimal values to file as well, for hlsims use
     f_bin = open(filename_bin,'wb')
     f_dec = open(filename_dec,'wb')
     width = frac_bits + int_bits + 1 #1 for sign bit
@@ -18,10 +18,10 @@ def glorotnormal_init_generate(fi, fo, int_bits, frac_bits, filename='s136_frc21
     f_dec.close()
 
 ########################## ONLY CHANGE THIS SECTION ###########################
-#fi = [128,32]
 #fo = [8,8]
-fi = [8,8]
-fo = [2,2]
+#fi = [128,32]
+fo = [8,4]
+fi = [128,4]
 int_bits = 2
 frac_bits = 7
 ###############################################################################

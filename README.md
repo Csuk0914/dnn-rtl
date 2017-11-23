@@ -67,7 +67,7 @@ sigmoid_sigmoidprime_table.v
 
 Gaussian lists
 
-	[NC,BW] Regenerate using /src/glorotnormal_init_generator.py
+	[NC,BW] Regenerate using /scripts/glorotnormal_init_generator.py
 	Put new files in local Verilog folder on Windows
 
 New datasets [NC]
