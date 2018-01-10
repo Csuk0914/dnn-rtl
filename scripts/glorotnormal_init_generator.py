@@ -2,8 +2,8 @@ import numpy as np
 import os
 
 def glorotnormal_init_generate(fi, fo, int_bits, frac_bits, filename='s136_frc21_int10'):
-    filename_bin = os.path.dirname(os.path.dirname(os.path.realpath(__file__))) + '/gaussian_list/'+filename+'.dat' #binary file for RTL use
-    filename_dec = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))) + '/dnn-hlsims/network_models/wtbias_initdata/'+filename+'_DEC.dat' #write decimal values to file as well, for hlsims use    
+    filename_bin = os.path.dirname(os.path.dirname(os.path.realpath('__file__'))) + '/gaussian_list/'+filename+'.dat' #binary file for RTL use
+    filename_dec = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath('__file__')))) + '/dnn-hlsims/network_models/wtbias_initdata/'+filename+'_DEC.dat' #write decimal values to file as well, for hlsims use
     f_bin = open(filename_bin,'wb')
     f_dec = open(filename_dec,'wb')
     width = frac_bits + int_bits + 1 #1 for sign bit
@@ -18,9 +18,13 @@ def glorotnormal_init_generate(fi, fo, int_bits, frac_bits, filename='s136_frc21
     f_dec.close()
 
 ########################## ONLY CHANGE THIS SECTION ###########################
+#fo = [8,8]
+#fi = [128,32]
+fo = [8,4]
+fi = [128,4]
 int_bits = 2
-frac_bits = 9
+frac_bits = 7
 ###############################################################################
 
-glorotnormal_init_generate(128,8,int_bits,frac_bits, filename='/s136_frc{0}_int{1}'.format(frac_bits,int_bits))
-glorotnormal_init_generate(32,8,int_bits,frac_bits, filename='/s40_frc{0}_int{1}'.format(frac_bits,int_bits))
+glorotnormal_init_generate(fi[0],fo[0],int_bits,frac_bits, filename='/s{0}_frc{1}_int{2}'.format(fi[0]+fo[0],frac_bits,int_bits))
+glorotnormal_init_generate(fi[1],fo[1],int_bits,frac_bits, filename='/s{0}_frc{1}_int{2}'.format(fi[1]+fo[1],frac_bits,int_bits))

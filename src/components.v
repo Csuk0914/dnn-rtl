@@ -1,27 +1,34 @@
 // THIS MODULE DEFINES VARIOUS BASIC COMPONENTS TO BE USED IN THE DESIGN
 `timescale 1ns/100ps
 
+//`define SYNCFF //Uncomment this if synchronous reset DFFs are [also] used
+
 // Custom made signed multiplier where input and outputs all have same bit width
 // This is achieved by restricting one of the inputs to [0-1]
-//[todo] Extend to [-1,1]
-//[todo] a and d have to be between 0-1 to preserve int_bits, frac_bits. Can this be changed?
+//[TODO] Extend to [-1,1] for tanh, etc
+//[TODO] a and d have to be between 0-1 to preserve int_bits, frac_bits. Can this be changed, so that output need not have width bits?
 module multiplier #(
 	parameter width = 16,
 	parameter int_bits = 5 //No. of bits in integer portion
 )(
-	input [width-1:0] a, //1,5,10
-	input [width-1:0] b, //1,5,10
-	output [width-1:0] z //1,5,10
+	input signed [width-1:0] a, //1,5,10
+	input signed [width-1:0] b, //1,5,10
+	output signed [width-1:0] z //1,5,10
 );
 	
-	wire [2*width-2:0] z_raw; //1,10,20. Overall 1 bit less because sign bit doesn't get replicated
-	assign z_raw = (a[width-2:0] - a[width-1] * 2**(width-1)) * (b[width-2:0] - b[width-1] * 2**(width-1)); //Subtraction converts signed representation to actual number
-	assign z = (z_raw[2*width-2]==0 && z_raw[2*width-3:2*width-int_bits-2]!=0) ? {1'b0, {(width-1) {1'b1}}} : 
-		(z_raw[2*width-2]==1 && z_raw[2*width-3:2*width-int_bits-2]!={(int_bits) {1'b1}})? {1'b1, {(width-1){1'b0}}} : 
-		{z_raw[2*width-2],z_raw[2*width-2-int_bits-1:width-int_bits-1]} + z_raw[width-int_bits-2]; //round to the nearest
-	/* To understand this, use the fact that MSB of z_raw = 2*width-2 and int_bits from MSB are discarded because multiplier is only used for w*a and w*d.
-	   Both a and d are <1, so we only need int_bits LSB [Eg: bits 24-20] of the integer part, since int_bits MSB [Eg: bits 29-24] of integer part are always 00000 (pos) or 11111 (neg)
-	   We also take MSB = sign and frac_bits MSB of frac part [Eg: Bits 19-10]. We discard frac_bits LSB [Eg: Bits 9-0]. Note that frac_bits = width-int_bits-1 */
+	wire signed [2*width-1:0] z_raw; //1,10,21
+	wire signed [width-1:0] z_temp; //1,5,10. Holds truncated output before rounding
+	//assign z_raw = (a[width-2:0] - a[width-1] * 2**(width-1)) * (b[width-2:0] - b[width-1] * 2**(width-1)); //Subtraction converts signed representation to actual number
+	assign z_raw = a*b;
+	assign z_temp = (z_raw[2*width-1]==0 && z_raw[2*width-2:2*width-int_bits-2]!=0) ? {1'b0, {(width-1){1'b1}}} : //positive overflow => set to max pos value
+		(z_raw[2*width-1]==1 && z_raw[2*width-2:2*width-int_bits-2]!={(int_bits+1){1'b1}}) ? {1'b1,{(width-1){1'b0}}} : //negative overflow => set to max neg value
+		{z_raw[2*width-1],z_raw[2*width-3-int_bits:width-int_bits-1]}; //no overflow truncated case
+	/* To understand this, use the fact that MSB of z_raw = 2*width-1 and int_bits+1 from MSB are discarded because multiplier is only used for w*a and w*d.
+			   Both a and d are <1, so we only need int_bits LSB [Eg: bits 24-20] of the integer part, since int_bits+1 MSB [Eg: bits 30-25] of integer part are always 000000 (pos) or 111111 (neg)
+			   We also take MSB = sign and frac_bits MSB of frac part [Eg: Bits 19-10]. We discard frac_bits LSB [Eg: Bits 9-0] after using bit[9] to round */
+	assign z = (z_raw[width-int_bits-2]==0 || z_temp=={1'b0,{(width-1){1'b1}}}) ? //check MSB of left-out frac part in z_raw. If that is 0, z=z_temp.
+		// If that is 1, but z_temp is max positive value, then also z=z_temp (because we don't want overflow)
+		z_temp : z_temp+1; //otherwise round up z to z_temp+1, like 0.5 becomes 1
 endmodule
 
 
@@ -36,7 +43,7 @@ module multiplier_set #(
 	output [width*z-1:0] z_set
 );
 
-	wire [width-1:0] a[z-1:0], b[z-1:0], out[z-1:0];
+	wire signed [width-1:0] a[z-1:0], b[z-1:0], out[z-1:0];
 
 	genvar gv_i;
 	
@@ -60,12 +67,12 @@ endmodule
 module adder #(
 	parameter width = 16
 )(
-	input [width-1:0] a,
-	input [width-1:0] b,
-	output [width-1:0] z
+	input signed [width-1:0] a,
+	input signed [width-1:0] b,
+	output signed [width-1:0] z
 );
-	wire [width-1:0] z_raw;
-	assign z_raw = a+b; //(a[14:0] - a[15] * 2 ** 15) + (b[14:0] - b[15] * 2 ** 15);
+	wire signed [width-1:0] z_raw;
+	assign z_raw = a+b;
 	assign z = (a[width-1]==b[width-1] && z_raw[width-1]!=b[width-1]) ? //check for overflow
 					(z_raw[width-1]==1'b0) ? //if overflow yes, then check which side
 					{1'b1,{(width-1){1'b0}}} : {1'b0,{(width-1){1'b1}}} //most negative or most positive value, depending on z_raw MSB
@@ -90,7 +97,7 @@ module costterm_set #(
 	output [width*z-1:0] c_set //packed cost terms
 );
 
-	wire [width-1:0] a[z-1:0], y[z-1:0], costterm[z-1:0];
+	wire signed [width-1:0] a[z-1:0], y[z-1:0], costterm[z-1:0];
 
 	genvar gv_i;
 
@@ -99,7 +106,7 @@ module costterm_set #(
 		assign a[gv_i] = a_set[width*(gv_i+1)-1:width*gv_i];
 		assign y[gv_i] =  (~{{int_bits{1'b0}},y_set[gv_i],{frac_bits{1'b0}}})+1;
 		/*[Eg: Say width = 16, int_bits = 5 => frac_bits = 10]
-		Then, if y_set[gv_i]=0, y[gv_i] = 00000 0 0000000000. If y_set[gv_i]=1, y[gv_i] = 11111 1 0000000000
+		Then, if y_set[gv_i]=0, y[gv_i] = 0 00000 0000000000. If y_set[gv_i]=1, y[gv_i] = 1 11111 0000000000
 		After this, a[gv_i]+y[gv_i] actually gives the 16-bit appropriate representation of a-y */
 		assign c_set[width*(gv_i+1)-1:width*gv_i] = costterm[gv_i];
 	end
@@ -228,7 +235,7 @@ module max_finder #(
 )(
 	input signed [width-1:0] a,
 	input signed [width-1:0] b,
-	output [width-1:0] out,
+	output signed [width-1:0] out,
 	output pos //0 if a>=b, otherwise 1
 );
 	assign out = (a>=b)? a : b;
@@ -243,7 +250,7 @@ module max_finder_set #(
 	parameter poswidth = (N==1) ? 1 : $clog2(N)
 )(
 	input [width*N-1:0] in,
-	output [width-1:0] out,
+	output signed [width-1:0] out,
 	output [poswidth-1:0] pos
 );
 	wire [width*(N-1)-1:0] intermeds; //intermediate max2to1 outputs
@@ -295,6 +302,26 @@ module max_finder_set #(
 endmodule
 
 
+`ifdef SYNCFF
+// This is a parallel register with synchronous reset, i.e. width 1-bit DFFs
+// [TODO] Use this for all DFFs not triggered by cycle_clk, i.e. use for all clk triggered DFFs
+module DFF_syncreset #(
+	parameter width = 16 //No. of DFFs in parallel
+)(
+	input clk,
+	input reset,
+	input [width-1:0] d,
+	output reg [width-1:0] q
+);
+	always @(posedge clk) begin
+		if (reset)
+			q <= {width{1'b0}};
+		else
+			q <= d;
+	end
+endmodule
+`endif
+
 // This is a parallel register with asynchronous reset, i.e. width 1-bit DFFs
 module DFF #(
 	parameter width = 16 //No. of DFFs in parallel
@@ -302,7 +329,7 @@ module DFF #(
 	input clk,
 	input reset,
 	input [width-1:0] d,
-	output reg [width-1:0] q
+	output reg [width-1:0] q = {width{1'b0}}
 );
 	always @(posedge clk, posedge reset) begin
 		if (reset)
@@ -312,8 +339,17 @@ module DFF #(
 	end
 endmodule
 
+module DFF_no_reset #(
+	parameter width = 16 //No. of DFFs in parallel
+)(
+	input clk,
+	input [width-1:0] d,
+	output reg [width-1:0] q = {width{1'b0}}
+);
+	always @(posedge clk) q <= d;
+endmodule
 
-// This is a serial bank of parallel registers, i.e. depth banks, each bank has width 1-bit DFFs
+// This is a serial bank of parallel registers, i.e. depth banks, each bank has width 1-bit async DFFs
 module shift_reg #(
 	parameter width = 16, //No. of DFFs in parallel
 	parameter depth = 8 //No. of serial banks. Must be >= 2
@@ -322,31 +358,54 @@ module shift_reg #(
 	input reset,
 	input [width-1:0] data_in,
 	output [width-1:0] data_out
+	// output reg [width-1:0] data_out = {width{1'b0}} //For alternate code using register logic
 );
 
-	wire [width-1:0] mem [depth-1:0];
-	assign data_out = mem[depth-1];
+	wire [width-1:0] mem [0:depth-1];
 	
-	genvar i;
-
 	DFF #( //1st DFF
 		.width(width)
-	) shift_reg_0 (
+	) sr_dff_first (
 		.clk(clk),
 		.reset(reset),
 		.d(data_in),
 		.q(mem[0])
 	);
-	generate for (i=1; i<depth; i=i+1)
+
+	genvar gv_i;
+	generate for (gv_i=1; gv_i<depth-1; gv_i=gv_i+1)
 	begin: shift_reg
-		DFF #( //another depth-1 DFFs
+		DFF_no_reset #( //other DFFs
 			.width(width)
-		) shift_reg_dff (
+		) sr_dffs_mid (
 			.clk(clk),
-			.reset(reset),
-			.d(mem[i-1]),
-			.q(mem[i])
+			//.reset(reset),
+			.d(mem[gv_i-1]),
+			.q(mem[gv_i])
 		);
 	end
 	endgenerate
+
+	DFF_no_reset #( //last DFF
+		.width(width)
+	) sr_dff_last (
+		.clk(clk),
+		//.reset(reset),
+		.d(mem[depth-2]),
+		.q(data_out)
+	);
+
+	/* Alternate code using register logic
+	reg [width-1:0] mem [0:depth-2];
+	integer i;
+	always @(posedge clk, posedge reset) begin
+		if (reset)
+			data_out <= {width{1'b0}};
+		else begin
+			mem[0] <= data_in;
+			for (i=1; i<depth-1; i=i+1)
+				mem[i] <= mem[i-1];
+			data_out <= mem[depth-2];
+		end
+	end */
 endmodule
