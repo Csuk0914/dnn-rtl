@@ -31,6 +31,25 @@ module multiplier #(
 		z_temp : z_temp+1; //otherwise round up z to z_temp+1, like 0.5 becomes 1
 endmodule
 
+module log_multiplier #( //By Mahdi
+	parameter width = 16,
+	parameter int_bits = 5 //No. of bits in integer portion
+)(
+	input [width-1:0] a, //1,5,10
+	input [width-1:0] b, //1,5,10
+	output [width-1:0] z //1,5,10
+);
+	//assumes that the sign bits are enclosed.
+	//this preserves the in/out ports as they are.
+	wire sa;
+	wire sb;
+	wire sz;
+	assign sa = a[width-1]; 
+	assign sb = b[width-1];
+	assign sz = !(sa ^ sb);
+	assign z = {sz, a + b}; //encloses the sign bit (sz).
+endmodule
+
 
 // Custom made signed multiplier set where input and outputs all have same bit width
 module multiplier_set #(
@@ -62,6 +81,34 @@ module multiplier_set #(
 	endgenerate
 endmodule
 
+module log_multiplier_set #( //By Mahdi
+	parameter z = 4, 
+	parameter width = 16,
+	parameter int_bits = 5
+)(
+	input [width*z-1:0] a_set,
+	input [width*z-1:0] b_set,
+	output [width*z-1:0] z_set
+);
+	wire [width-1:0] a[z-1:0], b[z-1:0], out[z-1:0];
+
+	genvar gv_i;
+	
+	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+	begin : package_data
+		assign a[gv_i] = a_set[width*(gv_i+1)-1:width*gv_i];
+		assign b[gv_i] = b_set[width*(gv_i+1)-1:width*gv_i];
+		assign z_set[width*(gv_i+1)-1:width*gv_i] = out[gv_i];
+	end
+	endgenerate
+
+	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+	begin : logmultiplier_set
+		multiplier #(.width(width),.int_bits(int_bits)) mul (a[gv_i], b[gv_i], out[gv_i]);
+	end
+	endgenerate
+endmodule
+
 
 // Saturating adder
 module adder #(
@@ -81,6 +128,38 @@ module adder #(
 	/*always @(a, b) begin
 		if (a[width-1]==b[width-1] && z_raw[width-1]!=b[width-1]) $display("Adder overflow in %m"); //display hierarchy
 	end*/
+endmodule
+
+module log_adder #( //By Mahdi
+	parameter width = 16
+)(
+	input [width-1:0] a,
+	input [width-1:0] b,
+	output [width-1:0] z
+);
+	function  cf;
+		input r;		
+		cf = 2 >> r;
+	endfunction
+
+        //assumes that the sign bits are enclosed.
+        //this preserves the in/out ports as they are.
+        wire sa;
+        wire sb;
+	wire sz;
+	assign sa = a[width-1];
+	assign sb = b[width-1]; 
+	//a greater than b flag
+	wire agb_flag; 
+	wire [width-1:0] r;
+	wire [width-1:0] max;
+	
+	assign agb_flag = (a[width-2:0] > b[width-2:0]) ? 1 : 0;
+	assign sz = (!agb_flag & sb) | (!agb_flag & sa);
+	assign r = agb_flag ? (a - b) : (b - a); //abs of a and b
+	assign max = agb_flag ? a : b;
+	assign z = (sa == sb) ? (max + cf(r)) : (max - cf(r-1)); //CF: Correction Factor implemented as a LUT
+	  							// if the difference between a and b is significant then CF ~ 0	
 endmodule
 
 
