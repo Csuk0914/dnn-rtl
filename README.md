@@ -59,6 +59,7 @@ memories.v
 interleavers (Assume interleaver_array unless otherwise noted)
 
 	[NC] define: Uncomment used dataset
+	[NC] Add new if-else cases with appropriate p,fo,z in the 'ifdef sections. Generate new sweepstart vectors from scripts/sweepstart_generator.py and put them here
 	[NC,BW] If interleaver_drp is used, comment out higher m else if statements inside r_dither and w_dither in case of any issue while running smaller DNNs
 
 sigmoid_sigmoidprime_table.v

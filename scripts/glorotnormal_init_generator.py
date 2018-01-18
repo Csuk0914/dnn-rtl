@@ -18,8 +18,6 @@ def glorotnormal_init_generate(fi, fo, int_bits, frac_bits, filename='s136_frc21
     f_dec.close()
 
 ########################## ONLY CHANGE THIS SECTION ###########################
-#fo = [8,8]
-#fi = [128,32]
 fo = [8,4]
 fi = [128,4]
 int_bits = 2

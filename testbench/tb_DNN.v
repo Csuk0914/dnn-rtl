@@ -31,10 +31,10 @@ module tb_DNN #(
 );
 
 `ifdef MNIST
-	parameter [31:0] fo [0:L-2] = '{8, 8}; //Fanout of all layers except for output
-	parameter [31:0] fi [0:L-2] = '{128, 32}; //Fanin of all layers except for input
-	parameter [31:0] z [0:L-2] = '{512, 32}; //Degree of parallelism of all junctions. No. of junctions = L-1
-	parameter [31:0] n [0:L-1] = '{1024, 64, 16}; //No. of neurons in every layer
+	parameter [31:0] fo [0:L-2] = '{8, 4}; //Fanout of all layers except for output
+	parameter [31:0] fi [0:L-2] = '{128, 4}; //Fanin of all layers except for input
+	parameter [31:0] z [0:L-2] = '{128, 4}; //Degree of parallelism of all junctions. No. of junctions = L-1
+	parameter [31:0] n [0:L-1] = '{1024, 64, 64}; //No. of neurons in every layer
 `elsif SMALLNET
 	parameter [31:0] fo [0:L-2] = '{2, 2};
 	parameter [31:0] fi [0:L-2] = '{8, 8};
@@ -178,7 +178,7 @@ module tb_DNN #(
 			reg ans_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
 			initial begin
 				$readmemb("./gaussian_list/s136_frc7_int2.dat", memJ1);
-				$readmemb("./gaussian_list/s40_frc7_int2.dat", memJ2);
+				$readmemb("./gaussian_list/s8_frc7_int2.dat", memJ2);
 				$readmemb("train_idealout_spaced.dat", ans_mem);
 				$readmemh("train_input_spaced.dat", act_mem);
 			end       
@@ -187,7 +187,7 @@ module tb_DNN #(
 			reg ans_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
 			initial begin
 				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s136_frc7_int2.dat", memJ1);
-				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s40_frc7_int2.dat", memJ2);
+				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s8_frc7_int2.dat", memJ2);
 				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout.dat", ans_mem);
 				$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input.dat", act_mem);
 			end
