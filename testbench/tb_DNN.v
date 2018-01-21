@@ -26,15 +26,15 @@ module tb_DNN #(
 	parameter int_bits = 2,
 	parameter frac_bits = width-int_bits-1,
 	parameter L = 3,
-	parameter Eta = 2.0**(-4) //Should be a power of 2. Value between 2^(-frac_bits) and 1. DO NOT WRITE THIS AS 2**x, it doesn't work without 2.0
+	parameter Eta = 2.0**(-3) //Should be a power of 2. Value between 2^(-frac_bits) and 1. DO NOT WRITE THIS AS 2**x, it doesn't work without 2.0
 	//parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
 );
 
 `ifdef MNIST
-	parameter [31:0] fo [0:L-2] = '{8, 4}; //Fanout of all layers except for output
-	parameter [31:0] fi [0:L-2] = '{128, 4}; //Fanin of all layers except for input
-	parameter [31:0] z [0:L-2] = '{128, 4}; //Degree of parallelism of all junctions. No. of junctions = L-1
-	parameter [31:0] n [0:L-1] = '{1024, 64, 64}; //No. of neurons in every layer
+	parameter [31:0] fo [0:L-2] = '{8, 8}; //Fanout of all layers except for output
+	parameter [31:0] fi [0:L-2] = '{128, 32}; //Fanin of all layers except for input
+	parameter [31:0] z [0:L-2] = '{512, 32}; //Degree of parallelism of all junctions. No. of junctions = L-1
+	parameter [31:0] n [0:L-1] = '{1024, 64, 16}; //No. of neurons in every layer
 `elsif SMALLNET
 	parameter [31:0] fo [0:L-2] = '{2, 2};
 	parameter [31:0] fi [0:L-2] = '{8, 8};

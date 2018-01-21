@@ -3,8 +3,12 @@
 
 `define ETA2POWER //Comment out if eta is NOT a power of 2. Can vary from 2^0=1 to 2^(-frac_bits)
 
+// Leave only one activation uncommented
+`define SIGMOID
+//`define RELU0to1
+
 //This module computes actn, i.e. z activations for the succeeding layer
-//Multiplication aw = act*wt happens here, the remaining additions and looking up activation function is done in the submodule sigmoid_function
+//Multiplication aw = act*wt happens here, the remaining additions and looking up activation function is done in the submodule act_function
 module FF_processor_set #(
 	parameter fo = 2,
 	parameter fi  = 4,
@@ -59,8 +63,8 @@ module FF_processor_set #(
 	endgenerate
 
 	generate for (gv_i = 0; gv_i<(z/fi); gv_i = gv_i + 1)
-	begin : sigmoid_function_set
-		sigmoid_function #(
+	begin : act_function_set
+		act_function #(
 			.fo(fo), .fi(fi), .p(p), .n(n), .z(z), .width(width), .frac_bits(frac_bits), .int_bits(int_bits)
 		) s_function (
 			.clk(clk),
@@ -75,7 +79,7 @@ endmodule
 
 // Submodule of FF processor set
 // [TODO] generalize this for other activations
-module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
+module act_function #( //Computes act and act prime for ONE NEURON
 	parameter fo = 2,
 	parameter fi  = 4,
 	parameter p  = 16,
@@ -136,8 +140,13 @@ module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 					(s_raw[width_TA-1]==1 && s_raw[width_TA-2:width-1]!={(width_TA-width){1'b1}}) ? //If no, now check that s_raw is negative and less than max negative width-bit value
 					{1'b1, {(width-1){1'b0}}} : //If yes, assign s to the max negative width-bit value
 					s_raw[width-1:0]; //If still no, then s_raw is between the limits allowed by width bits. So just assign s to the LSB width bits of s_raw
-	sigmoid_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) s_table (clk, s, act_out);
-	sigmoid_prime_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) sp_table (clk, s, adot_out);
+	`ifdef SIGMOID //Read values from LUTs stored in separate file
+		sigmoid_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) s_table (clk, s, act_out);
+		sigmoid_prime_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) sp_table (clk, s, adot_out);
+	`elsif RELU0to1 //Check sign, then check integer bits for values >=1. 
+		assign act_out = (s[width-1]==1)? 0 : (s[width-2:frac_bits]!=0)? {{int_bits{1'b0}}, 1'b1, {frac_bits{1'b0}}} : s; //The long concat is the value 1
+		assign adot_out = ((s[width-1]==1) || (s[width-2:frac_bits]!=0))? 0 : {{int_bits{1'b0}}, 1'b1, {frac_bits{1'b0}}};
+	`endif
 endmodule
 
 // __________________________________________________________________________________________________________ //
