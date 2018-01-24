@@ -26,20 +26,20 @@ module tb_DNN #(
 	parameter int_bits = 2,
 	parameter frac_bits = width-int_bits-1,
 	parameter L = 3,
-	parameter Eta = 2.0**(-3) //Should be a power of 2. Value between 2^(-frac_bits) and 1. DO NOT WRITE THIS AS 2**x, it doesn't work without 2.0
+	parameter Eta = 2.0**(-1) //Should be a power of 2. Value between 2^(-frac_bits) and 1. DO NOT WRITE THIS AS 2**x, it doesn't work without 2.0
 	//parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
 );
 
 `ifdef MNIST
-	parameter [31:0] fo [0:L-2] = '{8, 8}; //Fanout of all layers except for output
+	parameter [31:0] n [0:L-1] = '{1024, 64, 64}; //No. of neurons in every layer
+	parameter [31:0] fo [0:L-2] = '{8, 32}; //Fanout of all layers except for output
 	parameter [31:0] fi [0:L-2] = '{128, 32}; //Fanin of all layers except for input
-	parameter [31:0] z [0:L-2] = '{512, 32}; //Degree of parallelism of all junctions. No. of junctions = L-1
-	parameter [31:0] n [0:L-1] = '{1024, 64, 16}; //No. of neurons in every layer
+	parameter [31:0] z [0:L-2] = '{128, 32}; //Degree of parallelism of all junctions. No. of junctions = L-1
 `elsif SMALLNET
+	parameter [31:0] n [0:L-1] = '{64, 16, 4};
 	parameter [31:0] fo [0:L-2] = '{2, 2};
 	parameter [31:0] fi [0:L-2] = '{8, 8};
 	parameter [31:0] z [0:L-2] = '{32, 8};
-	parameter [31:0] n [0:L-1] = '{64, 16, 4};
 `endif
 	localparam cpc =  n[0] * fo[0] / z[0] + 2;
 	
@@ -178,7 +178,7 @@ module tb_DNN #(
 			reg ans_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
 			initial begin
 				$readmemb("./gaussian_list/s136_frc7_int2.dat", memJ1);
-				$readmemb("./gaussian_list/s8_frc7_int2.dat", memJ2);
+				$readmemb("./gaussian_list/s32_frc7_int2.dat", memJ2);
 				$readmemb("train_idealout_spaced.dat", ans_mem);
 				$readmemh("train_input_spaced.dat", act_mem);
 			end       
@@ -187,7 +187,7 @@ module tb_DNN #(
 			reg ans_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
 			initial begin
 				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s136_frc7_int2.dat", memJ1);
-				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s8_frc7_int2.dat", memJ2);
+				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/gaussian_list/s64_frc7_int2.dat", memJ2);
 				$readmemb("C:/Users/souryadey92/Desktop/Verilog/DNN/train_idealout.dat", ans_mem);
 				$readmemh("C:/Users/souryadey92/Desktop/Verilog/DNN/train_input.dat", act_mem);
 			end

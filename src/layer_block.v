@@ -181,7 +181,8 @@ module input_layer_block #(
 	 	.z(z), 
 	 	.width(width),
 		.int_bits(int_bits), 
-		.frac_bits(frac_bits)
+		.frac_bits(frac_bits),
+		.actfn(0) //Change here - 0 for sigmoid, 1 for ReLU, etc
 	) L0_FF_processor (
 		.clk(clk),
 		.act_in_package(act_FF_in),
@@ -444,7 +445,8 @@ module hidden_layer_block #(
 	 	.z(z), 
 	 	.width(width),
 		.int_bits(int_bits), 
-		.frac_bits(frac_bits)
+		.frac_bits(frac_bits),
+		.actfn(0) //should NOT be 1 = ReLU
 	) FF_processor (
 		.clk(clk),
 		.act_in_package(act_FF_in),

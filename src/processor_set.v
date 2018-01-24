@@ -3,10 +3,6 @@
 
 `define ETA2POWER //Comment out if eta is NOT a power of 2. Can vary from 2^0=1 to 2^(-frac_bits)
 
-// Leave only one activation uncommented
-`define SIGMOID
-//`define RELU0to1
-
 //This module computes actn, i.e. z activations for the succeeding layer
 //Multiplication aw = act*wt happens here, the remaining additions and looking up activation function is done in the submodule act_function
 module FF_processor_set #(
@@ -17,7 +13,8 @@ module FF_processor_set #(
 	parameter z  = 8,
 	parameter width = 16, 
 	parameter int_bits = 5, 
-	parameter frac_bits = 10
+	parameter frac_bits = 10,
+	parameter actfn = 0 //0 for sigmoid, 1 for ReLU
 )(
 	input clk,
 	input [width*z -1:0] act_in_package, //Process z input activations together, each width bits
@@ -65,7 +62,7 @@ module FF_processor_set #(
 	generate for (gv_i = 0; gv_i<(z/fi); gv_i = gv_i + 1)
 	begin : act_function_set
 		act_function #(
-			.fo(fo), .fi(fi), .p(p), .n(n), .z(z), .width(width), .frac_bits(frac_bits), .int_bits(int_bits)
+			.fo(fo), .fi(fi), .p(p), .n(n), .z(z), .width(width), .frac_bits(frac_bits), .int_bits(int_bits), .actfn(actfn)
 		) s_function (
 			.clk(clk),
 			.actwt_package(actwt_package[gv_i]),
@@ -86,9 +83,10 @@ module act_function #( //Computes act and act prime for ONE NEURON
 	parameter n  = 8,
 	parameter z  = 8,
 	parameter width =16,
-	parameter width_TA = width + $clog2(fi), //width of tree adder is not compromised
-	parameter int_bits = 5, 
-	parameter frac_bits = 10
+	parameter int_bits = 5,
+	parameter frac_bits = 10,
+	parameter actfn = 0, //see FF_processor_set for definition
+	localparam width_TA = width + $clog2(fi) //width of tree adder is not compromised
 )(
 	input clk,
 	// All the following parameters are for 1 neuron
@@ -140,13 +138,16 @@ module act_function #( //Computes act and act prime for ONE NEURON
 					(s_raw[width_TA-1]==1 && s_raw[width_TA-2:width-1]!={(width_TA-width){1'b1}}) ? //If no, now check that s_raw is negative and less than max negative width-bit value
 					{1'b1, {(width-1){1'b0}}} : //If yes, assign s to the max negative width-bit value
 					s_raw[width-1:0]; //If still no, then s_raw is between the limits allowed by width bits. So just assign s to the LSB width bits of s_raw
-	`ifdef SIGMOID //Read values from LUTs stored in separate file
-		sigmoid_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) s_table (clk, s, act_out);
-		sigmoid_prime_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) sp_table (clk, s, adot_out);
-	`elsif RELU0to1 //Check sign, then check integer bits for values >=1. 
-		assign act_out = (s[width-1]==1)? 0 : (s[width-2:frac_bits]!=0)? {{int_bits{1'b0}}, 1'b1, {frac_bits{1'b0}}} : s; //The long concat is the value 1
-		assign adot_out = ((s[width-1]==1) || (s[width-2:frac_bits]!=0))? 0 : {{int_bits{1'b0}}, 1'b1, {frac_bits{1'b0}}};
-	`endif
+	
+	generate //Choose activation function
+		if (actfn==0) begin //Read values from LUTs stored in separate file
+			sigmoid_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) s_table (clk, s, act_out);
+			sigmoid_prime_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) sp_table (clk, s, adot_out);
+		end else if (actfn==1) begin //Check sign, then check integer bits for values >=1. 
+			assign act_out = (s[width-1]==1)? {width{1'b0}} : (s[width-2:frac_bits]!={int_bits{1'b0}})? {{int_bits{1'b0}}, 1'b1, {frac_bits{1'b0}}} : s; //The long concat is the value 1
+			assign adot_out = ((s[width-1]==1) || (s[width-2:frac_bits]!={int_bits{1'b0}}))? {width{1'b0}} : {{int_bits{1'b0}}, 1'b1, {frac_bits{1'b0}}};
+		end
+	endgenerate
 endmodule
 
 // __________________________________________________________________________________________________________ //

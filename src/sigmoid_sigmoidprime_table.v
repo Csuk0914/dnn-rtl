@@ -1061,7 +1061,7 @@ module sigmoid_table #(
 		10'b0111111101:	sigmoid = 7'b1111110;
 		10'b0111111110:	sigmoid = 7'b1111110;
 		10'b0111111111:	sigmoid = 7'b1111110;
-
+		
 	endcase
 endmodule
 
