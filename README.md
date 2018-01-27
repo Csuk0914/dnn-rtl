@@ -91,7 +91,7 @@ CONSTRAINTS:
 	
 	p = k*z, k >= 2	
 	fo >= 2
-	z = k*fi (since an integral number of output neurons must be processed in 1 cycle [TODO] MAYBE add FFs for partial add to alleviate this)
+	z should be an integral multiple of both fo and fi (since an integral number of neurons on both sides must be processed in 1 cycle [TODO] MAYBE add FFs for partial add to nullify the output condition)
 
 
 

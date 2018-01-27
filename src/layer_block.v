@@ -536,9 +536,14 @@ module hidden_layer_block #(
 		.N(2)) previousBPcoll_sel
 		(del_coll_inA, del_coll_rBP_pt, del_mem_rBP);
 
-	mux #(.width(width*z/fo), // This mux is to segment prev mux values into cpc-2 chunks and feed them sequentially to prev layer
-		.N(fo)) del_r_sel
-		(del_mem_rBP, cycle_index_delay[$clog2(fo)-1:0], del_out);
+	generate
+		if (fo>1)
+			mux #(.width(width*z/fo), // This mux is to segment prev mux values into cpc-2 chunks and feed them sequentially to prev layer
+				.N(fo)) del_r_sel
+				(del_mem_rBP, cycle_index_delay[$clog2(fo)-1:0], del_out);
+		else //no mux required since del_out and del_mem_rBP are now both width*z bits
+			assign del_out = del_mem_rBP;
+	endgenerate
 endmodule
 
 // __________________________________________________________________________________________________________ //
