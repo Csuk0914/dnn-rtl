@@ -1,3 +1,0 @@
-The file train_input_spaced.dat (used for Modelsim) is too big for the repo
-There's a zip file: dnn-rtl/data/train_input_spaced.dat.zip
-Before simulating in Modelsim, unzip it in your local machine and put in dnn-rtl/data folder

@@ -143,9 +143,12 @@ module act_function #( //Computes act and act prime for ONE NEURON
 		if (actfn==0) begin //Read values from LUTs stored in separate file
 			sigmoid_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) s_table (clk, s, act_out);
 			sigmoid_prime_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) sp_table (clk, s, adot_out);
-		end else if (actfn==1) begin //Check sign, then check integer bits for values >=1. 
-			assign act_out = (s[width-1]==1)? {width{1'b0}} : (s[width-2:frac_bits]!={int_bits{1'b0}})? {{int_bits{1'b0}}, 1'b1, {frac_bits{1'b0}}} : s; //The long concat is the value 1
-			assign adot_out = ((s[width-1]==1) || (s[width-2:frac_bits]!={int_bits{1'b0}}))? {width{1'b0}} : {{int_bits{1'b0}}, 1'b1, {frac_bits{1'b0}}};
+		end else if (actfn==1) begin //ReLU
+		// Values <=0 have act = 0+1LSB, adot = 0+1LSB (i.e. only frac_bit LSB=1, everything else=0)
+		// Values >=1 have act = 1-1LSB (i.e. sign and int_bits=0, frac_bits = all 1), adot = 0+1LSB
+		// Values >0,<1 have act = value, adot = 1-1LSB
+			assign act_out = (s <= 0) ? 1 : (s >= 1<<frac_bits) ? 1<<frac_bits : s;
+			assign adot_out = ((s <= 0) || (s >= 1<<frac_bits)) ? 1 : 1<<frac_bits;
 		end
 	endgenerate
 endmodule

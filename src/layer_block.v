@@ -182,7 +182,7 @@ module input_layer_block #(
 	 	.width(width),
 		.int_bits(int_bits), 
 		.frac_bits(frac_bits),
-		.actfn(0) //Change here - 0 for sigmoid, 1 for ReLU, etc
+		.actfn(1) //Change here - 0 for sigmoid, 1 for ReLU, etc
 	) L0_FF_processor (
 		.clk(clk),
 		.act_in_package(act_FF_in),
