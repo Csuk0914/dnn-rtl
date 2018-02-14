@@ -1,8 +1,8 @@
 // This file contains a number of different types of memories
 `timescale 1ns/100ps
 
-`define SIM //Comment this for synthesis
-`define INITMEMSIZE 2000 //number of elements in gaussian_list
+//`define SIM //Comment this for synthesis
+`define INITMEMSIZE 64 //number of elements in gaussian_list
 
 //basic single port memory module
 module memory #(
@@ -128,7 +128,8 @@ endmodule
 // __________________________________________________________________________________________________________ //
 // __________________________________________________________________________________________________________ //
 
-//basic dual port memory module
+// basic dual port memory module
+
 module dual_port_memory #(
 	parameter depth = 2,
 	parameter width = 16, 
@@ -186,7 +187,123 @@ module dual_port_memory #(
 endmodule
 
 //set of identical dual port memory modules, each clocked by same clk. 1 whole set like this is a single collection
-module parallel_dual_port_mem #(
+// module parallel_dual_port_mem #(
+// 	parameter z = 8,
+// 	parameter depth = 2,
+// 	parameter width = 16, 
+// 	parameter fi = 0, 
+// 	parameter fo = 0
+// )(	
+// 	input clk,
+// 	input [z-1:0] weA,
+// 	input [z-1:0] weB,
+// 	input [$clog2(depth)*z-1:0] addressA_package,
+// 	input [$clog2(depth)*z-1:0] addressB_package,
+// 	input [width*z-1:0] data_inA_package,
+// 	input [width*z-1:0] data_inB_package,
+// 	output [width*z-1:0] data_outA_package,
+// 	output [width*z-1:0] data_outB_package
+// );
+
+// 	// unpack
+// 	wire [$clog2(depth)-1:0] addressA[z-1:0], addressB[z-1:0];
+// 	wire [width-1:0] data_inA[z-1:0], data_inB[z-1:0];
+// 	wire [width-1:0] data_outA[z-1:0], data_outB[z-1:0];
+// 	genvar gv_i;
+// 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+// 	begin : package_data_address
+// 		assign data_inA[gv_i] = data_inA_package[width*(gv_i+1)-1:width*gv_i];
+// 		assign data_outA_package[width*(gv_i+1)-1:width*gv_i] = data_outA[gv_i];
+// 		assign addressA[gv_i] = addressA_package[$clog2(depth)*(gv_i+1)-1:$clog2(depth)*gv_i];
+// 		assign data_inB[gv_i] = data_inB_package[width*(gv_i+1)-1:width*gv_i];
+// 		assign data_outB_package[width*(gv_i+1)-1:width*gv_i] = data_outB[gv_i];
+// 		assign addressB[gv_i] = addressB_package[$clog2(depth)*(gv_i+1)-1:$clog2(depth)*gv_i];
+// 	end
+// 	endgenerate
+// 	// done unpack
+
+// 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+// 	begin : parallel_mem
+// 		dual_port_mem dual_port_memory (
+// 			.clka(clk),
+// 			.clkb(clk),
+// 			.addra(addressA[gv_i]),
+// 			.wea(weA[gv_i]),
+// 			.dina(data_inA[gv_i]),
+// 			.douta(data_outA[gv_i]),
+// 			.addrb(addressB[gv_i]),
+// 			.web(weB[gv_i]),
+// 			.dinb(data_inB[gv_i]),
+// 			.doutb(data_outB[gv_i])
+// 		);
+// 	end
+// 	endgenerate
+// endmodule
+
+// //set of collections. Each collection is a dual port parallel_mem, i.e. a set of memories of identical size and clocked by same clock
+// module dual_port_mem_collection #(	
+// 	parameter collection = 5,
+// 	parameter z = 8,
+// 	parameter depth = 2,
+// 	parameter width = 16, 
+// 	parameter fi = 0, 
+// 	parameter fo = 0
+// )(
+// 	input clk,
+// 	input [collection*z-1:0] weA_package,
+// 	input [collection*z-1:0] weB_package,
+// 	input [collection*z*$clog2(depth)-1:0] addrA_package,
+// 	input [collection*z*$clog2(depth)-1:0] addrB_package,
+// 	input [collection*z*width-1:0] data_inA_package,
+// 	input [collection*z*width-1:0] data_inB_package,
+// 	output [collection*z*width-1:0] data_outA_package,
+// 	output [collection*z*width-1:0] data_outB_package
+// );
+
+// 	// unpack
+// 	wire [z-1:0] weA[collection-1:0], weB[collection-1:0];
+// 	wire [$clog2(depth)*z-1:0] addrA[collection-1:0], addrB[collection-1:0];
+// 	wire [width*z-1:0] data_inA[collection-1:0], data_inB[collection-1:0];
+// 	wire [width*z-1:0] data_outA[collection-1:0], data_outB[collection-1:0];	
+// 	genvar gv_i;
+// 	generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1)
+// 	begin : package_collection
+// 		assign weA[gv_i] = weA_package[z*(gv_i+1)-1:z*gv_i];
+// 		assign addrA[gv_i] = addrA_package[z*$clog2(depth)*(gv_i+1)-1:z*$clog2(depth)*gv_i];
+// 		assign data_inA[gv_i] = data_inA_package[z*width*(gv_i+1)-1:z*width*gv_i];
+// 		assign data_outA_package[z*width*(gv_i+1)-1:z*width*gv_i] = data_outA[gv_i];
+// 		assign weB[gv_i] = weB_package[z*(gv_i+1)-1:z*gv_i];
+// 		assign addrB[gv_i] = addrB_package[z*$clog2(depth)*(gv_i+1)-1:z*$clog2(depth)*gv_i];
+// 		assign data_inB[gv_i] = data_inB_package[z*width*(gv_i+1)-1:z*width*gv_i];
+// 		assign data_outB_package[z*width*(gv_i+1)-1:z*width*gv_i] = data_outB[gv_i];
+// 	end
+// 	endgenerate
+// 	// done unpack
+	
+// 	generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1)
+// 	begin : mem_collection
+// 		parallel_dual_port_mem #(
+// 			.z(z), 
+// 			.width(width), 
+// 			.depth(depth), 
+// 			.fi(fi), 
+// 			.fo(fo)
+// 		) mem (
+// 			.clk(clk),
+// 			.addressA_package(addrA[gv_i]),
+// 			.weA(weA[gv_i]),
+// 			.data_inA_package(data_inA[gv_i]),
+// 			.data_outA_package(data_outA[gv_i]),
+// 			.addressB_package(addrB[gv_i]),
+// 			.weB(weB[gv_i]),
+// 			.data_inB_package(data_inB[gv_i]),
+// 			.data_outB_package(data_outB[gv_i])
+// 		);
+// 	end
+// 	endgenerate
+// endmodule
+
+module parallel_dual_port_mem_del #(
 	parameter z = 8,
 	parameter depth = 2,
 	parameter width = 16, 
@@ -243,8 +360,7 @@ module parallel_dual_port_mem #(
 	endgenerate
 endmodule
 
-//set of collections. Each collection is a dual port parallel_mem, i.e. a set of memories of identical size and clocked by same clock
-module dual_port_mem_collection #(	
+module dual_port_mem_collection_del #(	
 	parameter collection = 5,
 	parameter z = 8,
 	parameter depth = 2,
@@ -285,7 +401,7 @@ module dual_port_mem_collection #(
 	
 	generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1)
 	begin : mem_collection
-		parallel_dual_port_mem #(
+		parallel_dual_port_mem_del #(
 			.z(z), 
 			.width(width), 
 			.depth(depth), 
@@ -304,4 +420,322 @@ module dual_port_mem_collection #(
 		);
 	end
 	endgenerate
+endmodule
+
+module dual_port_mem_collection_input #(	
+	parameter collection = 1,
+	parameter z = 64,
+	parameter depth = 64,
+	parameter width = 10, 
+	parameter fi = 0, 
+	parameter fo = 0
+)(
+	input clk,
+	input [collection*z-1:0] weA_package,
+	input [collection*z-1:0] weB_package,
+	input [collection*z*$clog2(depth)-1:0] addrA_package,
+	input [collection*z*$clog2(depth)-1:0] addrB_package,
+	input [collection*z*width-1:0] data_inA_package,
+	input [collection*z*width-1:0] data_inB_package,
+	output [collection*z*width-1:0] data_outA_package,
+	output [collection*z*width-1:0] data_outB_package
+);
+
+	// unpack
+	wire [z-1:0] weA[collection-1:0], weB[collection-1:0];
+	wire [$clog2(depth)*z-1:0] addrA[collection-1:0], addrB[collection-1:0];
+	wire [width*z-1:0] data_inA[collection-1:0], data_inB[collection-1:0];
+	wire [width*z-1:0] data_outA[collection-1:0], data_outB[collection-1:0];	
+	genvar gv_i;
+	generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1)
+	begin : package_collection
+		assign weA[gv_i] = weA_package[z*(gv_i+1)-1:z*gv_i];
+		assign addrA[gv_i] = addrA_package[z*$clog2(depth)*(gv_i+1)-1:z*$clog2(depth)*gv_i];
+		assign data_inA[gv_i] = data_inA_package[z*width*(gv_i+1)-1:z*width*gv_i];
+		assign data_outA_package[z*width*(gv_i+1)-1:z*width*gv_i] = data_outA[gv_i];
+		assign weB[gv_i] = weB_package[z*(gv_i+1)-1:z*gv_i];
+		assign addrB[gv_i] = addrB_package[z*$clog2(depth)*(gv_i+1)-1:z*$clog2(depth)*gv_i];
+		assign data_inB[gv_i] = data_inB_package[z*width*(gv_i+1)-1:z*width*gv_i];
+		assign data_outB_package[z*width*(gv_i+1)-1:z*width*gv_i] = data_outB[gv_i];
+	end
+	endgenerate
+	// done unpack
+	
+	generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1)
+	begin : mem_collection
+		parallel_dual_port_mem_input #(
+			.z(z), 
+			.width(width), 
+			.depth(depth), 
+			.fi(fi), 
+			.fo(fo)
+		) mem (
+			.clk(clk),
+			.addressA_package(addrA[gv_i]),
+			.weA(weA[gv_i]),
+			.data_inA_package(data_inA[gv_i]),
+			.data_outA_package(data_outA[gv_i]),
+			.addressB_package(addrB[gv_i]),
+			.weB(weB[gv_i]),
+			.data_inB_package(data_inB[gv_i]),
+			.data_outB_package(data_outB[gv_i])
+		);
+	end
+	endgenerate
+endmodule
+
+module parallel_dual_port_mem_input #(
+	parameter z = 8,
+	parameter depth = 2,
+	parameter width = 16, 
+	parameter fi = 0, 
+	parameter fo = 0
+)(	
+	input clk,
+	input [z-1:0] weA,
+	input [z-1:0] weB,
+	input [$clog2(depth)*z-1:0] addressA_package,
+	input [$clog2(depth)*z-1:0] addressB_package,
+	input [width*z-1:0] data_inA_package,
+	input [width*z-1:0] data_inB_package,
+	output [width*z-1:0] data_outA_package,
+	output [width*z-1:0] data_outB_package
+);
+
+	// unpack
+	wire [$clog2(depth)-1:0] addressA[z-1:0], addressB[z-1:0];
+	wire [width-1:0] data_inA[z-1:0], data_inB[z-1:0];
+	wire [width-1:0] data_outA[z-1:0], data_outB[z-1:0];
+	genvar gv_i;
+	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+	begin : package_data_address
+		assign data_inA[gv_i] = data_inA_package[width*(gv_i+1)-1:width*gv_i];
+		assign data_outA_package[width*(gv_i+1)-1:width*gv_i] = data_outA[gv_i];
+		assign addressA[gv_i] = addressA_package[$clog2(depth)*(gv_i+1)-1:$clog2(depth)*gv_i];
+		assign data_inB[gv_i] = data_inB_package[width*(gv_i+1)-1:width*gv_i];
+		assign data_outB_package[width*(gv_i+1)-1:width*gv_i] = data_outB[gv_i];
+		assign addressB[gv_i] = addressB_package[$clog2(depth)*(gv_i+1)-1:$clog2(depth)*gv_i];
+	end
+	endgenerate
+	// done unpack
+
+	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+	begin : parallel_mem
+		dual_port_mem_input_wrap dual_port_memory (
+			.clka(clk),
+			.clkb(clk),
+			.addra(addressA[gv_i]),
+			.wea(weA[gv_i]),
+			.dina(data_inA[gv_i]),
+			.douta(data_outA[gv_i]),
+			.addrb(addressB[gv_i]),
+			.web(weB[gv_i]),
+			.dinb(data_inB[gv_i]),
+			.doutb(data_outB[gv_i])
+		);
+	end
+	endgenerate
+endmodule
+
+module dual_port_mem_collection_hidden #(	
+	parameter collection = 1,
+	parameter z = 4,
+	parameter depth = 4,
+	parameter width = 10, 
+	parameter fi = 0, 
+	parameter fo = 0
+)(
+	input clk,
+	input [collection*z-1:0] weA_package,
+	input [collection*z-1:0] weB_package,
+	input [collection*z*$clog2(depth)-1:0] addrA_package,
+	input [collection*z*$clog2(depth)-1:0] addrB_package,
+	input [collection*z*width-1:0] data_inA_package,
+	input [collection*z*width-1:0] data_inB_package,
+	output [collection*z*width-1:0] data_outA_package,
+	output [collection*z*width-1:0] data_outB_package
+);
+
+	// unpack
+	wire [z-1:0] weA[collection-1:0], weB[collection-1:0];
+	wire [$clog2(depth)*z-1:0] addrA[collection-1:0], addrB[collection-1:0];
+	wire [width*z-1:0] data_inA[collection-1:0], data_inB[collection-1:0];
+	wire [width*z-1:0] data_outA[collection-1:0], data_outB[collection-1:0];	
+	genvar gv_i;
+	generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1)
+	begin : package_collection
+		assign weA[gv_i] = weA_package[z*(gv_i+1)-1:z*gv_i];
+		assign addrA[gv_i] = addrA_package[z*$clog2(depth)*(gv_i+1)-1:z*$clog2(depth)*gv_i];
+		assign data_inA[gv_i] = data_inA_package[z*width*(gv_i+1)-1:z*width*gv_i];
+		assign data_outA_package[z*width*(gv_i+1)-1:z*width*gv_i] = data_outA[gv_i];
+		assign weB[gv_i] = weB_package[z*(gv_i+1)-1:z*gv_i];
+		assign addrB[gv_i] = addrB_package[z*$clog2(depth)*(gv_i+1)-1:z*$clog2(depth)*gv_i];
+		assign data_inB[gv_i] = data_inB_package[z*width*(gv_i+1)-1:z*width*gv_i];
+		assign data_outB_package[z*width*(gv_i+1)-1:z*width*gv_i] = data_outB[gv_i];
+	end
+	endgenerate
+	// done unpack
+	
+	generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1)
+	begin : mem_collection
+		parallel_dual_port_mem_hidden #(
+			.z(z), 
+			.width(width), 
+			.depth(depth), 
+			.fi(fi), 
+			.fo(fo)
+		) mem (
+			.clk(clk),
+			.addressA_package(addrA[gv_i]),
+			.weA(weA[gv_i]),
+			.data_inA_package(data_inA[gv_i]),
+			.data_outA_package(data_outA[gv_i]),
+			.addressB_package(addrB[gv_i]),
+			.weB(weB[gv_i]),
+			.data_inB_package(data_inB[gv_i]),
+			.data_outB_package(data_outB[gv_i])
+		);
+	end
+	endgenerate
+endmodule
+
+module parallel_dual_port_mem_hidden #(
+	parameter z = 8,
+	parameter depth = 2,
+	parameter width = 16, 
+	parameter fi = 0, 
+	parameter fo = 0
+)(	
+	input clk,
+	input [z-1:0] weA,
+	input [z-1:0] weB,
+	input [$clog2(depth)*z-1:0] addressA_package,
+	input [$clog2(depth)*z-1:0] addressB_package,
+	input [width*z-1:0] data_inA_package,
+	input [width*z-1:0] data_inB_package,
+	output [width*z-1:0] data_outA_package,
+	output [width*z-1:0] data_outB_package
+);
+
+	// unpack
+	wire [$clog2(depth)-1:0] addressA[z-1:0], addressB[z-1:0];
+	wire [width-1:0] data_inA[z-1:0], data_inB[z-1:0];
+	wire [width-1:0] data_outA[z-1:0], data_outB[z-1:0];
+	genvar gv_i;
+	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+	begin : package_data_address
+		assign data_inA[gv_i] = data_inA_package[width*(gv_i+1)-1:width*gv_i];
+		assign data_outA_package[width*(gv_i+1)-1:width*gv_i] = data_outA[gv_i];
+		assign addressA[gv_i] = addressA_package[$clog2(depth)*(gv_i+1)-1:$clog2(depth)*gv_i];
+		assign data_inB[gv_i] = data_inB_package[width*(gv_i+1)-1:width*gv_i];
+		assign data_outB_package[width*(gv_i+1)-1:width*gv_i] = data_outB[gv_i];
+		assign addressB[gv_i] = addressB_package[$clog2(depth)*(gv_i+1)-1:$clog2(depth)*gv_i];
+	end
+	endgenerate
+	// done unpack
+
+	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+	begin : parallel_mem
+		dual_port_mem_hidden_wrap dual_port_memory (
+			.clka(clk),
+			.clkb(clk),
+			.addra(addressA[gv_i]),
+			.wea(weA[gv_i]),
+			.dina(data_inA[gv_i]),
+			.douta(data_outA[gv_i]),
+			.addrb(addressB[gv_i]),
+			.web(weB[gv_i]),
+			.dinb(data_inB[gv_i]),
+			.doutb(data_outB[gv_i])
+		);
+	end
+	endgenerate
+endmodule
+
+module dual_port_mem_input_wrap (
+	input 			clka,
+	input 			clkb,
+	input 	[5:0] 	addra,
+	input 			wea,
+	input 	[9:0] 	dina,
+	output 	[9:0] 	douta,
+	input 	[5:0] 	addrb,
+	input 			web,
+	input 	[9:0] 	dinb,
+	output 	[9:0] 	doutb
+	);
+
+	reg fwd;
+	reg [9:0] datain_r;
+	wire [9:0] douta_in;
+	
+	dual_port_mem_input dual_port_memory (
+			.clka(clka),
+			.clkb(clkb),
+			.addra(addra),
+			.wea(wea),
+			.dina(dina),
+			.douta(douta_in),
+			.addrb(addrb),
+			.web(web),
+			.dinb(dinb),
+			.doutb(doutb)
+		);
+
+	always @(posedge clka)
+	begin
+	   if (web && addra==addrb) begin
+	       fwd <= 1;
+	       datain_r <= dinb;
+	   end
+	   else
+	       fwd <= 0;
+	end
+
+	assign douta = fwd? datain_r : douta_in;
+
+endmodule
+
+module dual_port_mem_hidden_wrap (
+	input 			clka,
+	input 			clkb,
+	input 	[5:0] 	addra,
+	input 			wea,
+	input 	[9:0] 	dina,
+	output 	[9:0] 	douta,
+	input 	[5:0] 	addrb,
+	input 			web,
+	input 	[9:0] 	dinb,
+	output 	[9:0] 	doutb
+	);
+
+	reg fwd;
+	reg [9:0] datain_r;
+	wire [9:0] douta_in;
+	
+	dual_port_mem_hidden dual_port_memory (
+			.clka(clka),
+			.clkb(clkb),
+			.addra(addra),
+			.wea(wea),
+			.dina(dina),
+			.douta(douta_in),
+			.addrb(addrb),
+			.web(web),
+			.dinb(dinb),
+			.doutb(doutb)
+		);
+
+	always @(posedge clka)
+	begin
+	   if (web && addra==addrb) begin
+	       fwd <= 1;
+	       datain_r <= dinb;
+	   end
+	   else
+	       fwd <= 0;
+	end
+
+	assign douta = fwd? datain_r : douta_in;
+	
 endmodule

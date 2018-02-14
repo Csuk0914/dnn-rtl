@@ -131,7 +131,7 @@ module input_layer_block #(
 		.data_out_package(act_coll_out)
 	);
 
-	dual_port_mem_collection #( //WBM. Just 1 collection. Port A used for readel_ing, port B for writing
+	dual_port_mem_collection_input #( //WBM. Just 1 collection. Port A used for readel_ing, port B for writing
 		.collection(1), 
 		.width(width), 
 		.depth(p*fo/z), 
@@ -181,8 +181,7 @@ module input_layer_block #(
 	 	.z(z), 
 	 	.width(width),
 		.int_bits(int_bits), 
-		.frac_bits(frac_bits),
-		.actfn(1) //Change here - 0 for sigmoid, 1 for ReLU, etc
+		.frac_bits(frac_bits)
 	) L0_FF_processor (
 		.clk(clk),
 		.act_in_package(act_FF_in),
@@ -399,7 +398,7 @@ module hidden_layer_block #(
 		.data_out_package(adot_coll_out)
 	);
 
-	dual_port_mem_collection #(
+	dual_port_mem_collection_hidden #(
 		.collection(1), 
 		.width(width), 
 		.depth(p*fo/z), 
@@ -418,7 +417,7 @@ module hidden_layer_block #(
 		// There is no data_outB_package
 	);
 
-	dual_port_mem_collection #( //For detailed DMp behavior, refer to memory_ctr file
+	dual_port_mem_collection_del #( //For detailed DMp behavior, refer to memory_ctr file
 		.collection(2), 
 		.width(width), 
 		.depth(p/z), 
@@ -445,8 +444,7 @@ module hidden_layer_block #(
 	 	.z(z), 
 	 	.width(width),
 		.int_bits(int_bits), 
-		.frac_bits(frac_bits),
-		.actfn(0) //should NOT be 1 = ReLU
+		.frac_bits(frac_bits)
 	) FF_processor (
 		.clk(clk),
 		.act_in_package(act_FF_in),
@@ -536,14 +534,9 @@ module hidden_layer_block #(
 		.N(2)) previousBPcoll_sel
 		(del_coll_inA, del_coll_rBP_pt, del_mem_rBP);
 
-	generate
-		if (fo>1)
-			mux #(.width(width*z/fo), // This mux is to segment prev mux values into cpc-2 chunks and feed them sequentially to prev layer
-				.N(fo)) del_r_sel
-				(del_mem_rBP, cycle_index_delay[$clog2(fo)-1:0], del_out);
-		else //no mux required since del_out and del_mem_rBP are now both width*z bits
-			assign del_out = del_mem_rBP;
-	endgenerate
+	mux #(.width(width*z/fo), // This mux is to segment prev mux values into cpc-2 chunks and feed them sequentially to prev layer
+		.N(fo)) del_r_sel
+		(del_mem_rBP, cycle_index_delay[$clog2(fo)-1:0], del_out);
 endmodule
 
 // __________________________________________________________________________________________________________ //

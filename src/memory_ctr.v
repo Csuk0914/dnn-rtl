@@ -222,16 +222,10 @@ module act_adot_ctr #(
 	generate for (gv_i = 0; gv_i<2; gv_i = gv_i + 1)
 		for (gv_j = 0; gv_j<fo; gv_j = gv_j + 1) //choose part out of fo parts in a collection
 			for (gv_k = 0; gv_k<(z/fo); gv_k = gv_k + 1) //choose memory out of z/fo memories in a part
-				if (fo>1)
-					assign del_coll_weB[gv_i*z+gv_j*(z/fo)+gv_k] = 
-						((cycle_index_delay < cpc-2) &&
-						((gv_j)==cycle_index_delay[$clog2(fo)-1:0]) && //check for part match
-						(gv_i==del_coll_rBP_pt))? 1: 0;
-				else
-					assign del_coll_weB[gv_i*z+gv_j*(z/fo)+gv_k] = 
-						((cycle_index_delay < cpc-2) &&
-						//part has to match since fo=1
-						(gv_i==del_coll_rBP_pt))? 1: 0;
+				assign del_coll_weB[gv_i*z+gv_j*(z/fo)+gv_k] = 
+					((cycle_index_delay < cpc-2) &&
+					((gv_j)==cycle_index_delay[$clog2(fo)-1:0]) && //check for part match
+					(gv_i==del_coll_rBP_pt))? 1: 0;
 				// From the example in comments, weB of ~rBP_pt will be 0
 				// weB of rBP_pt will be 1 only after 1 clock delay, that is why we use cycle_index_delay in the comparison, and not cycle_index
 				// (cycle_index can be used of course, but that would lead to the additional condition of it needing to be greater than 0)

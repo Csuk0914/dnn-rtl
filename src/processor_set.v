@@ -4,7 +4,7 @@
 `define ETA2POWER //Comment out if eta is NOT a power of 2. Can vary from 2^0=1 to 2^(-frac_bits)
 
 //This module computes actn, i.e. z activations for the succeeding layer
-//Multiplication aw = act*wt happens here, the remaining additions and looking up activation function is done in the submodule act_function
+//Multiplication aw = act*wt happens here, the remaining additions and looking up activation function is done in the submodule sigmoid_function
 module FF_processor_set #(
 	parameter fo = 2,
 	parameter fi  = 4,
@@ -13,8 +13,7 @@ module FF_processor_set #(
 	parameter z  = 8,
 	parameter width = 16, 
 	parameter int_bits = 5, 
-	parameter frac_bits = 10,
-	parameter actfn = 0 //0 for sigmoid, 1 for ReLU
+	parameter frac_bits = 10
 )(
 	input clk,
 	input [width*z -1:0] act_in_package, //Process z input activations together, each width bits
@@ -60,9 +59,9 @@ module FF_processor_set #(
 	endgenerate
 
 	generate for (gv_i = 0; gv_i<(z/fi); gv_i = gv_i + 1)
-	begin : act_function_set
-		act_function #(
-			.fo(fo), .fi(fi), .p(p), .n(n), .z(z), .width(width), .frac_bits(frac_bits), .int_bits(int_bits), .actfn(actfn)
+	begin : sigmoid_function_set
+		sigmoid_function #(
+			.fo(fo), .fi(fi), .p(p), .n(n), .z(z), .width(width), .frac_bits(frac_bits), .int_bits(int_bits)
 		) s_function (
 			.clk(clk),
 			.actwt_package(actwt_package[gv_i]),
@@ -76,17 +75,16 @@ endmodule
 
 // Submodule of FF processor set
 // [TODO] generalize this for other activations
-module act_function #( //Computes act and act prime for ONE NEURON
+module sigmoid_function #( //Computes sigma and sigma prime for ONE NEURON
 	parameter fo = 2,
 	parameter fi  = 4,
 	parameter p  = 16,
 	parameter n  = 8,
 	parameter z  = 8,
 	parameter width =16,
-	parameter int_bits = 5,
-	parameter frac_bits = 10,
-	parameter actfn = 0, //see FF_processor_set for definition
-	localparam width_TA = width + $clog2(fi) //width of tree adder is not compromised
+	parameter width_TA = width + $clog2(fi), //width of tree adder is not compromised
+	parameter int_bits = 5, 
+	parameter frac_bits = 10
 )(
 	input clk,
 	// All the following parameters are for 1 neuron
@@ -121,36 +119,43 @@ module act_function #( //Computes act and act prime for ONE NEURON
 	begin : tree_adder
 		for (gv_j = 0; gv_j < (fi/(2**gv_i)); gv_j = gv_j + 1)
 		begin : parallel_adder
-			if (gv_i<=2) adder #(.width(width_TA)) adder ( partial_s[fi*2 - fi*2**(2-gv_i) + 2*gv_j],
+			if (gv_i<=2) 
+				if (width_TA==17)
+				 	adder_ipt #(.width(width_TA)) adder ( partial_s[fi*2 - fi*2**(2-gv_i) + 2*gv_j],
 								partial_s[fi*2 - fi*2**(2-gv_i) + 2*gv_j + 1],
 								partial_s[2**($clog2(fi)+1) - 2**($clog2(fi)+1-gv_i) + gv_j] );
-			else adder #(.width(width_TA)) adder ( partial_s[fi*2 - fi/2**(gv_i-2) + 2*gv_j],
-					partial_s[fi*2 - fi/2**(gv_i-2) + 2*gv_j + 1],
-					partial_s[2**($clog2(fi)+1) - 2**($clog2(fi)+1-gv_i) + gv_j] );
+				else
+					adder_hd #(.width(width_TA)) adder ( partial_s[fi*2 - fi*2**(2-gv_i) + 2*gv_j],
+								partial_s[fi*2 - fi*2**(2-gv_i) + 2*gv_j + 1],
+								partial_s[2**($clog2(fi)+1) - 2**($clog2(fi)+1-gv_i) + gv_j] );
+			else 
+				if (width_TA==17)
+					adder_ipt #(.width(width_TA)) adder ( partial_s[fi*2 - fi/2**(gv_i-2) + 2*gv_j],
+								partial_s[fi*2 - fi/2**(gv_i-2) + 2*gv_j + 1],
+								partial_s[2**($clog2(fi)+1) - 2**($clog2(fi)+1-gv_i) + gv_j] );
+				else
+					adder_hd #(.width(width_TA)) adder ( partial_s[fi*2 - fi/2**(gv_i-2) + 2*gv_j],
+								partial_s[fi*2 - fi/2**(gv_i-2) + 2*gv_j + 1],
+								partial_s[2**($clog2(fi)+1) - 2**($clog2(fi)+1-gv_i) + gv_j] );
 		end	
 	end
 	endgenerate
 
-	adder #(.width(width_TA)) bias_adder (partial_s[fi*2-2], {{$clog2(fi) {bias[width-1]}}, bias}, s_raw); // The 2nd input is a sign extension of 'width bit' bias to 'width_TA bit'
+	generate
+		if (width_TA==17)
+			adder_ipt #(.width(width_TA)) bias_adder (partial_s[fi*2-2], {{$clog2(fi) {bias[width-1]}}, bias}, s_raw); // The 2nd input is a sign extension of 'width bit' bias to 'width_TA bit'
+		else
+			adder_hd #(.width(width_TA)) bias_adder (partial_s[fi*2-2], {{$clog2(fi) {bias[width-1]}}, bias}, s_raw);
+	endgenerate
+	
 	// s_raw now has an extra portion consisting of width_TA-width bits and the regular width-bit portion	
 	assign s = (s_raw[width_TA-1]==0 && s_raw[width_TA-2:width-1]!=0) ? //check that s_raw is positive and greater than max positive width-bit value
 					{1'b0, {(width-1){1'b1}}} : //If yes, assign s to the max positive width-bit value
 					(s_raw[width_TA-1]==1 && s_raw[width_TA-2:width-1]!={(width_TA-width){1'b1}}) ? //If no, now check that s_raw is negative and less than max negative width-bit value
 					{1'b1, {(width-1){1'b0}}} : //If yes, assign s to the max negative width-bit value
 					s_raw[width-1:0]; //If still no, then s_raw is between the limits allowed by width bits. So just assign s to the LSB width bits of s_raw
-	
-	generate //Choose activation function
-		if (actfn==0) begin //Read values from LUTs stored in separate file
-			sigmoid_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) s_table (clk, s, act_out);
-			sigmoid_prime_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) sp_table (clk, s, adot_out);
-		end else if (actfn==1) begin //ReLU
-		// Values <=0 have act = 0+1LSB, adot = 0+1LSB (i.e. only frac_bit LSB=1, everything else=0)
-		// Values >=1 have act = 1-1LSB (i.e. sign and int_bits=0, frac_bits = all 1), adot = 0+1LSB
-		// Values >0,<1 have act = value, adot = 1-1LSB
-			assign act_out = (s <= 0) ? 1 : (s >= 1<<frac_bits) ? 1<<frac_bits : s;
-			assign adot_out = ((s <= 0) || (s >= 1<<frac_bits)) ? 1 : 1<<frac_bits;
-		end
-	endgenerate
+	sigmoid_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) s_table (clk, s, act_out);
+	sigmoid_prime_table #(.width(width), .frac_bits(frac_bits), .int_bits(int_bits)) sp_table (clk, s, adot_out);
 endmodule
 
 // __________________________________________________________________________________________________________ //
@@ -208,7 +213,7 @@ module BP_processor_set #(
 		// [Eg for ppt example: Note that (w.d).f'(z) can be written as w0*d0*f'(z0) + w1*d0*f'(z0) + ... and then later ... w36*d2*f'(z2) ... and so on]
 			multiplier #(.width(width),.int_bits(int_bits)) a_d (del_in[gv_i], adot_out[gv_i*fi+gv_j], delta_act[gv_i*fi+gv_j]); //delta_act = d*f'
 			multiplier #(.width(width),.int_bits(int_bits)) w_d (delta_act[gv_i*fi+gv_j], wt[gv_i*fi+gv_j], delta_wt[gv_i*fi+gv_j]); //delta_wt = w*d*f'
-			adder #(.width(width)) acc (delta_wt[gv_i*fi+gv_j], partial_del_out[gv_i*fi+gv_j], del_out[gv_i*fi+gv_j]); //Add above to respective del value
+			adder_nm #(.width(width)) acc (delta_wt[gv_i*fi+gv_j], partial_del_out[gv_i*fi+gv_j], del_out[gv_i*fi+gv_j]); //Add above to respective del value
 		end
 	end
 	endgenerate
@@ -288,7 +293,7 @@ module UP_processor_set #(
 		`else
 			multiplier #(.width(width),.int_bits(int_bits)) mul_eta (del_in[gv_i], eta, delta_bias[gv_i]);
 		`endif
-		adder #(.width(width)) update_b (bias[gv_i], delta_bias[gv_i], bias_new[gv_i]);
+		adder_nm #(.width(width)) update_b (bias[gv_i], delta_bias[gv_i], bias_new[gv_i]);
 	
 		/* lamda factor controlled update of bias (here lamda is NOT used for regularization)
 			factor controlled means that if new bias is > lamda*2**int_bits OR < -lamda*2**int_bits, then do NOT update
@@ -308,7 +313,7 @@ module UP_processor_set #(
 		for (gv_j = 0; gv_j<fi; gv_j = gv_j + 1)
 		begin :weight_update
 			multiplier #(.width(width),.int_bits(int_bits)) mul_act_del (delta_bias[gv_i], act_in[gv_i*fi+gv_j], delta_wt[gv_i*fi+gv_j]);
-			adder #(.width(width)) update_wt (wt[gv_i*fi+gv_j], delta_wt[gv_i*fi+gv_j], wt_new[gv_i*fi+gv_j]);
+			adder_nm #(.width(width)) update_wt (wt[gv_i*fi+gv_j], delta_wt[gv_i*fi+gv_j], wt_new[gv_i*fi+gv_j]);
 			
 			// lamda factor controlled update of weight (here lamda is NOT used for regularization)
 			/*assign wt_UP[gv_i*fi+gv_j] = (wt_new[gv_i*fi+gv_j]<(2**(width-1)-1)*lamda ||

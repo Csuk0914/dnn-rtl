@@ -19,7 +19,8 @@ module multiplier #(
 	wire signed [2*width-1:0] z_raw; //1,10,21
 	wire signed [width-1:0] z_temp; //1,5,10. Holds truncated output before rounding
 	//assign z_raw = (a[width-2:0] - a[width-1] * 2**(width-1)) * (b[width-2:0] - b[width-1] * 2**(width-1)); //Subtraction converts signed representation to actual number
-	assign z_raw = a*b;
+	// assign z_raw = a*b;
+	mult_ip mult (a, b, z_raw);
 	assign z_temp = (z_raw[2*width-1]==0 && z_raw[2*width-2:2*width-int_bits-2]!=0) ? {1'b0, {(width-1){1'b1}}} : //positive overflow => set to max pos value
 		(z_raw[2*width-1]==1 && z_raw[2*width-2:2*width-int_bits-2]!={(int_bits+1){1'b1}}) ? {1'b1,{(width-1){1'b0}}} : //negative overflow => set to max neg value
 		{z_raw[2*width-1],z_raw[2*width-3-int_bits:width-int_bits-1]}; //no overflow truncated case
@@ -33,38 +34,38 @@ endmodule
 
 
 // Custom made signed multiplier set where input and outputs all have same bit width
-module multiplier_set #(
-	parameter z = 4, //No. of multipliers
-	parameter width = 16,
-	parameter int_bits = 5
-)(
-	input [width*z-1:0] a_set,
-	input [width*z-1:0] b_set,
-	output [width*z-1:0] z_set
-);
+// module multiplier_set #(
+// 	parameter z = 4, //No. of multipliers
+// 	parameter width = 16,
+// 	parameter int_bits = 5
+// )(
+// 	input [width*z-1:0] a_set,
+// 	input [width*z-1:0] b_set,
+// 	output [width*z-1:0] z_set
+// );
 
-	wire signed [width-1:0] a[z-1:0], b[z-1:0], out[z-1:0];
+// 	wire signed [width-1:0] a[z-1:0], b[z-1:0], out[z-1:0];
 
-	genvar gv_i;
+// 	genvar gv_i;
 	
-	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
-	begin : package_data
-		assign a[gv_i] = a_set[width*(gv_i+1)-1:width*gv_i];
-		assign b[gv_i] = b_set[width*(gv_i+1)-1:width*gv_i];
-		assign z_set[width*(gv_i+1)-1:width*gv_i] = out[gv_i];
-	end
-	endgenerate
+// 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+// 	begin : package_data
+// 		assign a[gv_i] = a_set[width*(gv_i+1)-1:width*gv_i];
+// 		assign b[gv_i] = b_set[width*(gv_i+1)-1:width*gv_i];
+// 		assign z_set[width*(gv_i+1)-1:width*gv_i] = out[gv_i];
+// 	end
+// 	endgenerate
 
-	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
-	begin : multiplier_set
-		multiplier #(.width(width),.int_bits(int_bits)) mul (a[gv_i], b[gv_i], out[gv_i]);
-	end
-	endgenerate
-endmodule
+// 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+// 	begin : multiplier_set
+// 		multiplier #(.width(width),.int_bits(int_bits)) mul (a[gv_i], b[gv_i], out[gv_i]);
+// 	end
+// 	endgenerate
+// endmodule
 
 
 // Saturating adder
-module adder #(
+module adder_nm #(
 	parameter width = 16
 )(
 	input signed [width-1:0] a,
@@ -72,7 +73,8 @@ module adder #(
 	output signed [width-1:0] z
 );
 	wire signed [width-1:0] z_raw;
-	assign z_raw = a+b;
+	// assign z_raw = a+b;
+	adder_nm_ip adder (a, b, z_raw);
 	assign z = (a[width-1]==b[width-1] && z_raw[width-1]!=b[width-1]) ? //check for overflow
 					(z_raw[width-1]==1'b0) ? //if overflow yes, then check which side
 					{1'b1,{(width-1){1'b0}}} : {1'b0,{(width-1){1'b1}}} //most negative or most positive value, depending on z_raw MSB
@@ -83,6 +85,45 @@ module adder #(
 	end*/
 endmodule
 
+module adder_ipt #(
+	parameter width = 23
+)(
+	input signed [width-1:0] a,
+	input signed [width-1:0] b,
+	output signed [width-1:0] z
+);
+	wire signed [width-1:0] z_raw;
+	// assign z_raw = a+b;
+	adder_ipt_ip adder (a, b, z_raw);
+	assign z = (a[width-1]==b[width-1] && z_raw[width-1]!=b[width-1]) ? //check for overflow
+					(z_raw[width-1]==1'b0) ? //if overflow yes, then check which side
+					{1'b1,{(width-1){1'b0}}} : {1'b0,{(width-1){1'b1}}} //most negative or most positive value, depending on z_raw MSB
+					: z_raw; //if no overflow, then z = z_raw 
+
+	/*always @(a, b) begin
+		if (a[width-1]==b[width-1] && z_raw[width-1]!=b[width-1]) $display("Adder overflow in %m"); //display hierarchy
+	end*/
+endmodule
+
+module adder_hd #(
+	parameter width = 21
+)(
+	input signed [width-1:0] a,
+	input signed [width-1:0] b,
+	output signed [width-1:0] z
+);
+	wire signed [width-1:0] z_raw;
+	// assign z_raw = a+b;
+	adder_hd_ip adder (a, b, z_raw);
+	assign z = (a[width-1]==b[width-1] && z_raw[width-1]!=b[width-1]) ? //check for overflow
+					(z_raw[width-1]==1'b0) ? //if overflow yes, then check which side
+					{1'b1,{(width-1){1'b0}}} : {1'b0,{(width-1){1'b1}}} //most negative or most positive value, depending on z_raw MSB
+					: z_raw; //if no overflow, then z = z_raw 
+
+	/*always @(a, b) begin
+		if (a[width-1]==b[width-1] && z_raw[width-1]!=b[width-1]) $display("Adder overflow in %m"); //display hierarchy
+	end*/
+endmodule
 
 // Computes cost term, i.e. vector a-y for output layer of neurons
 // Note that (a-y) is used in both quadcost (along with sp) and xentcost (by itself)
@@ -114,7 +155,7 @@ module costterm_set #(
 
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
 	begin : cost_adder_set
-		adder #(.width(width))cost_adder(a[gv_i], y[gv_i], costterm[gv_i]);
+		adder_nm #(.width(width))cost_adder(a[gv_i], y[gv_i], costterm[gv_i]);
 	end
 	endgenerate
 endmodule
@@ -373,7 +414,7 @@ module shift_reg #(
 	);
 
 	genvar gv_i;
-	generate for (gv_i=1; gv_i<depth-1; gv_i=gv_i+1)
+	generate for (gv_i=1; gv_i<depth; gv_i=gv_i+1)
 	begin: shift_reg
 		DFF_no_reset #( //other DFFs
 			.width(width)
