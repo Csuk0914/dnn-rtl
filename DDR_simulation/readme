@@ -1,0 +1,4 @@
+This folder contains files needed for doing simulation.
+
+In the simulation consecutive writes are sent to DDR via MIG, then consecutive reads.
+By checking waveforms of MIG we can see how interactions with DDR should be made and how the responses are given.
