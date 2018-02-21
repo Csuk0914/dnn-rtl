@@ -1,0 +1,8 @@
+This folder contains codes and IPs needed for simulating DDR and DNN working together.
+
+Part of training input (16383 * 128 bits) is written into DDR consecutively first, and then DNN reads from DDR these data and runs.
+
+After downloading to local, remember to change the path in board_top.v to correctly locate train_input.dat.
+
+If MIG IP ddr.xci cannot work, you can try re-customize this IP and follow preset configurations (by clicking NEXT and NEXT and NEXT) and regenerate it.
+The .ucf file needed for this is included in the folder.
