@@ -69,7 +69,6 @@ sigmoid_sigmoidprime_table.v
 Gaussian lists
 
 	[NC,BW] Regenerate using /scripts/glorotnormal_init_generator.py
-	Put new files in local Verilog folder on Windows
 
 New datasets [NC]
 
@@ -78,10 +77,12 @@ New datasets [NC]
 	(Additional processing needs to be added for Modelsim format)
 	Put new files in local Verilog folder on Windows
 
-Location of Files:
+Where to put accessed files (data, gaussian_list etc) and where results can be found:
 
-	[SIM] Modelsim [Sourya's Machine]: Windows -> Verilog/DNN
-	[SIM] Vivado: Windows -> <Vivado folder>/<projectname>/<projectname>.sim/sim_1/behav
+	[SIM] Modelsim [Sourya's Machine]: Desktop -> Verilog/DNN
+	[SIM] Vivado: Click 'Run Behavioral Simulation' and look for the filepath in the following line:
+	INFO: [USF-XSim-61] Executing 'ELABORATE' step in 'C:/Users/souryadey92/Desktop/Vivado/DNN_MNIST/DNN_MNIST.sim/sim_1/behav/xsim'
+	
 	[SYNTH] Basic report: <Vivado folder>/<projectname>/<projectname>.runs/synth_1/<topmodulename>_utilization_synth.rpt
 	[SYNTH] Detailed report: <Vivado folder>/<projectname>/<projectname>.runs/synth_1/<topmodulename>.vds
 	[General] Periodically delete Windows -> <Vivado folder>/<projectname>/<projectname>.cache to save space

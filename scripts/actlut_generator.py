@@ -27,7 +27,7 @@ def sigmoid_table_gen(size=4096, wordbits=12, maxdomain=8):
     '''
     addr_sint_bits = 1 + int(np.log2(maxdomain)) #no. of sign + integer bits
     addr_frac_bits = int(np.log2(size)) - addr_sint_bits
-    table = open("sigmoidtable_size{0}_word{1}_maxdom{2}.dat".format(size,wordbits,maxdomain), "wb")   
+    table = open("sigmoidtable_size{0}_word{1}_maxdom{2}.dat".format(size,wordbits,maxdomain), "wb")
     for n in xrange(-size/2,size/2):
         z = float(n) / 2**addr_frac_bits #this ensures that z goes from -maxdomain to maxdomain
         s = sigmoid(z)
@@ -38,8 +38,8 @@ def sigmoid_table_gen(size=4096, wordbits=12, maxdomain=8):
             for i in xrange(wordbits-1): value+='1'
         print  >> table, "\t\t{0}'b{1}:\tsigmoid = {2}'b{3};".format(int(np.log2(size)),addr,wordbits,value)
     table.close()
-    
-    
+
+
 def sigmoidprime_table_gen(size=4096, wordbits=12, maxdomain=8):
     '''
     KEY DIFFERENCE: sigmoidprime is always <0.25, so 1st 2 frac bits are always 0. So wordbits = actual frac bits - 2
@@ -54,7 +54,7 @@ def sigmoidprime_table_gen(size=4096, wordbits=12, maxdomain=8):
     '''
     addr_sint_bits = 1 + int(np.log2(maxdomain)) #no. of sign + integer bits
     addr_frac_bits = int(np.log2(size)) - addr_sint_bits
-    table = open("sigmoidprimetable_size{0}_word{1}_maxdom{2}.dat".format(size,wordbits,maxdomain), "wb")   
+    table = open("sigmoidprimetable_size{0}_word{1}_maxdom{2}.dat".format(size,wordbits,maxdomain), "wb")
     for n in xrange(-size/2,size/2):
         z = float(n) / 2**addr_frac_bits #this ensures that z goes from -maxdomain to maxdomain
         s = 4*sigmoid_prime(z) #multiply by 4 to stretch range to [0,1]
@@ -69,8 +69,8 @@ def sigmoidprime_table_gen(size=4096, wordbits=12, maxdomain=8):
 
 ########################## ONLY CHANGE THIS SECTION ###########################
 size = 4096
-wordbits = 9
-maxdomain = 4
+wordbits = 8
+maxdomain = 8
 ###############################################################################
 
 sigmoid_table_gen(size=size, wordbits=wordbits, maxdomain=maxdomain)
