@@ -1,8 +1,8 @@
 // This file contains a number of different types of memories
 `timescale 1ns/100ps
 
-//`define SIM //Comment this for synthesis
-`define INITMEMSIZE 64 //number of elements in gaussian_list
+`define SIM //Comment this for synthesis
+// `define INITMEMSIZE 64 //number of elements in gaussian_list
 
 //basic single port memory module
 module memory #(
@@ -160,30 +160,30 @@ module dual_port_memory #(
 	end
 
 	//FPGA synth doesn't support initial. [TODO] find how to initialize FPGA RAMs
-	`ifdef SIM
-		integer i;
-		initial begin
-	    // for weight memory, initialize it to glorot normal distribution with mu = 0, sigma = sqrt[2/(fi+fo)]
-        // Marsaglia and Bray method to generate the random number following Gaussian distribution
-			#0.1; //memJ1 and memJ2 are read in the testbench at t=0. So wait a small while before reading from them
-			if(fi != 0) begin
-				for (i = 0; i < depth; i = i + 1) begin
-					if((fi+fo) == tb_DNN.fi[0] + tb_DNN.fo[0])
-						#0.1 mem[i] = tb_DNN.memJ1[($random%(`INITMEMSIZE/2)+(`INITMEMSIZE/2))]; //apparently $random%1000 gives a number in +/-999, so adding 1000 gives a number in [1,1999] as per the data file requirement
-					else if ((fi+fo) == tb_DNN.fi[1] + tb_DNN.fo[1])
-						#0.1 mem[i] = tb_DNN.memJ2[($random%(`INITMEMSIZE/2)+(`INITMEMSIZE/2))];
-				end
-			end
-		// for other memories, initialize to 0 value by passing parameter fi=0 during instantiation
-			else begin
-				for (i = 0; i < depth; i = i + 1) begin //
-					mem[i] = 0;//($random%2)? $random%(2**23):-$random%(2**23);
-				end
-			end
-			data_outA = mem[addressA];
-			data_outB = mem[addressB];
-		end
-	`endif
+	// `ifdef SIM
+	// 	integer i;
+	// 	initial begin
+	//     // for weight memory, initialize it to glorot normal distribution with mu = 0, sigma = sqrt[2/(fi+fo)]
+ //        // Marsaglia and Bray method to generate the random number following Gaussian distribution
+	// 		#0.1; //memJ1 and memJ2 are read in the testbench at t=0. So wait a small while before reading from them
+	// 		if(fi != 0) begin
+	// 			for (i = 0; i < depth; i = i + 1) begin
+	// 				if((fi+fo) == tb_DNN.fi[0] + tb_DNN.fo[0])
+	// 					#0.1 mem[i] = tb_DNN.memJ1[($random%(`INITMEMSIZE/2)+(`INITMEMSIZE/2))]; //apparently $random%1000 gives a number in +/-999, so adding 1000 gives a number in [1,1999] as per the data file requirement
+	// 				else if ((fi+fo) == tb_DNN.fi[1] + tb_DNN.fo[1])
+	// 					#0.1 mem[i] = tb_DNN.memJ2[($random%(`INITMEMSIZE/2)+(`INITMEMSIZE/2))];
+	// 			end
+	// 		end
+	// 	// for other memories, initialize to 0 value by passing parameter fi=0 during instantiation
+	// 		else begin
+	// 			for (i = 0; i < depth; i = i + 1) begin //
+	// 				mem[i] = 0;//($random%2)? $random%(2**23):-$random%(2**23);
+	// 			end
+	// 		end
+	// 		data_outA = mem[addressA];
+	// 		data_outB = mem[addressB];
+	// 	end
+	// `endif
 endmodule
 
 //set of identical dual port memory modules, each clocked by same clk. 1 whole set like this is a single collection
