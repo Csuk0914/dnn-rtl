@@ -1,0 +1,3 @@
+This folder contains the latest version of board design where DDR is no longer used.
+Training data are directly sent from PC to DNN via UART.
+Because UART is slow, there's still need for gating the clock fed into DNN.
