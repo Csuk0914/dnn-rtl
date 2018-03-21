@@ -5,18 +5,19 @@
 `define INITMEMSIZE 2000 //number of elements in gaussian_list
 
 //basic single port memory module
-module memory #(
+module singleport_mem #(
 	parameter depth = 2, //No. of cells
-	parameter width = 16 //No. of bits in each cell
+	parameter width = 16, //No. of bits in each cell
+	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(
 	input clk,
-	input [$clog2(depth)-1:0] address,
+	input [addrsize-1:0] address,
 	input we, //write enable
 	input [width-1:0] data_in,
-	output reg[width-1:0] data_out
+	output logic [width-1:0] data_out = '0
 );
 	
-	reg [width-1:0] mem [depth-1:0];
+	logic [width-1:0] mem [depth-1:0];
 
 	always @(posedge clk) begin
 		data_out = mem[address]; //can't hurt to read, even when we=1. If we=1, old value is read out and then new value is written
@@ -24,50 +25,51 @@ module memory #(
 			mem[address] = data_in;
 	end
 
-	//FPGA synth doesn't support initial. [TODO] find how to initialize FPGA RAMs
 	`ifdef SIM
 		integer i;
 		initial begin
 			for (i = 0; i < depth; i = i + 1)
-				mem[i] = 0;//($random%2)? $random%(2**22):-$random%(2**22);
-			data_out = 0;
+				mem[i] = '0;//($random%2)? $random%(2**22):-$random%(2**22);
+			data_out = '0;
 		end
 	`endif
 endmodule
 
-//set of identical memory modules, each clocked by same clk. 1 whole set like this is a single collection
-module parallel_mem #(
+
+module parallel_singleport_mem #(
 	parameter z = 8, //no. of mems, each having depth cells, each cell has width bits
 	parameter depth = 2,
-	parameter width = 16
+	parameter width = 16,
+	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(	
 	input clk,
-	input [$clog2(depth)*z-1:0] address_package,
+	input [addrsize*z-1:0] address_package,
 	input [z-1:0] we,
 	input [width*z-1:0] data_in_package,
 	output [width*z-1:0] data_out_package
 );
 
 	// Unpack
-	wire [$clog2(depth)-1:0] address[z-1:0];
-	wire [width-1:0] data_in[z-1:0];
-	wire [width-1:0] data_out[z-1:0];
+	logic [addrsize-1:0] address[z-1:0];
+	logic [width-1:0] data_in[z-1:0];
+	logic [width-1:0] data_out[z-1:0];
 	genvar gv_i;
+	
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
 	begin : package_data_address
 		assign data_in[gv_i] = data_in_package[width*(gv_i+1)-1:width*gv_i];
 		assign data_out_package[width*(gv_i+1)-1:width*gv_i] = data_out[gv_i];
-		assign address[gv_i] = address_package[$clog2(depth)*(gv_i+1)-1:$clog2(depth)*gv_i];
+		assign address[gv_i] = address_package[addrsize*(gv_i+1)-1:addrsize*gv_i];
 	end
 	endgenerate
 	// Done unpack
 
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
-	begin : parallel_mem
-		memory #(
+	begin : parallel_singleport_mem
+		singleport_mem #(
 			.depth(depth),
 			.width(width)
-		) mem (
+		) singleport_mem (
 			.clk(clk),
 			.address(address[gv_i]),
 			.we(we[gv_i]),
@@ -78,30 +80,32 @@ module parallel_mem #(
 	endgenerate
 endmodule
 
-//set of collections. Each collection is a parallel_mem, i.e. a set of memories of identical size and clocked by same clock
-module mem_collection #(
+
+module collection_singleport_mem #(
 	parameter collection = 5, //no. of collections
 	parameter z = 8, //no. of mems in each collection
 	parameter depth = 2, //no. of cells in each mem
-	parameter width = 16 //no. of bits in each cell
+	parameter width = 16, //no. of bits in each cell
+	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(
 	input clk,
 	input [collection*z-1:0] we_package,
-	input [collection*z*$clog2(depth)-1:0] addr_package,
+	input [collection*z*addrsize-1:0] addr_package,
 	input [collection*z*width-1:0] data_in_package,
 	output [collection*z*width-1:0] data_out_package
 );
 
 	// unpack
-	wire [z-1:0] we [collection-1:0];
-	wire [$clog2(depth)*z-1:0] addr[collection-1:0];
-	wire [width*z-1:0] data_in[collection-1:0];
-	wire [width*z-1:0] data_out[collection-1:0];
+	logic [z-1:0] we [collection-1:0];
+	logic [addrsize*z-1:0] addr[collection-1:0];
+	logic [width*z-1:0] data_in[collection-1:0];
+	logic [width*z-1:0] data_out[collection-1:0];
 	genvar gv_i;
+	
 	generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1)
 	begin : package_collection
 		assign we[gv_i] = we_package[z*(gv_i+1)-1:z*gv_i];
-		assign addr[gv_i] = addr_package[z*$clog2(depth)*(gv_i+1)-1:z*$clog2(depth)*gv_i];
+		assign addr[gv_i] = addr_package[z*addrsize*(gv_i+1)-1:z*addrsize*gv_i];
 		assign data_in[gv_i] = data_in_package[z*width*(gv_i+1)-1:z*width*gv_i];
 		assign data_out_package[z*width*(gv_i+1)-1:z*width*gv_i] = data_out[gv_i];
 	end
@@ -109,12 +113,12 @@ module mem_collection #(
 	// done unpack
 	
 	generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1)
-	begin : mem_collection
-		parallel_mem #(
+	begin : collection_singleport_mem
+		parallel_singleport_mem #(
 			.z(z), 
 			.width(width), 
 			.depth(depth)
-		) mem (
+		) parallel_singleport_mem (
 			.clk(clk),
 			.address_package(addr[gv_i]),
 			.we(we[gv_i]),
@@ -128,25 +132,113 @@ endmodule
 // __________________________________________________________________________________________________________ //
 // __________________________________________________________________________________________________________ //
 
-//basic dual port memory module
-module dual_port_memory #(
+module simple_dualport_mem #(
+	parameter purpose = 1,
 	parameter depth = 2,
-	parameter width = 16, 
-	parameter fi = 0, 
-	parameter fo = 0
+	parameter width = 16,
+	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
+)(
+	input clk,
+	input weA,
+	input [addrsize-1:0] addressA,
+	input [addrsize-1:0] addressB,
+	input [width-1:0] data_inA,
+	output logic [width-1:0] data_outB = '0
+);
+
+	logic [width-1:0] mem [depth-1:0];
+
+	always @(posedge clk) begin
+		if (weA)
+			mem[addressA] = data_inA;
+		data_outB = mem[addressB]; //As usual, we always read out irrespective of we, because read is not destructive
+	end
+
+	`ifdef SIM
+		integer i;
+		initial begin
+			#0.1; //memJ1 and memJ2 are read in the testbench at t=0. So wait a small while before reading from them
+			for (i = 0; i < depth; i = i + 1) begin
+				if (purpose==1)
+					#0.1 mem[i] = tb_DNN.memJ1[($random%(`INITMEMSIZE/2)+(`INITMEMSIZE/2))]; //apparently $random%1000 gives a number in +/-999, so adding 1000 gives a number in [1,1999] as per the data file requirement
+				else if (purpose==2)
+					#0.1 mem[i] = tb_DNN.memJ2[($random%(`INITMEMSIZE/2)+(`INITMEMSIZE/2))];
+			end
+			data_outB = mem[addressB];
+		end
+	`endif
+endmodule
+
+
+module parallel_simple_dualport_mem #(
+	parameter purpose = 1,
+	parameter z = 8,
+	parameter depth = 2,
+	parameter width = 16,
+	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
+)(	
+	input clk,
+	input [z-1:0] weA_package,
+	input [addrsize*z-1:0] addressA_package,
+	input [addrsize*z-1:0] addressB_package,
+	input [width*z-1:0] data_inA_package,
+	output [width*z-1:0] data_outB_package
+);
+
+	// unpack
+	logic [addrsize-1:0] addressA[z-1:0], addressB[z-1:0];
+	logic [width-1:0] data_inA[z-1:0], data_inB[z-1:0];
+	logic [width-1:0] data_outA[z-1:0], data_outB[z-1:0];
+	genvar gv_i;
+	
+	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+	begin : package_data_address
+		assign data_inA[gv_i] = data_inA_package[width*(gv_i+1)-1:width*gv_i];
+		assign addressA[gv_i] = addressA_package[addrsize*(gv_i+1)-1:addrsize*gv_i];
+		assign data_outB_package[width*(gv_i+1)-1:width*gv_i] = data_outB[gv_i];
+		assign addressB[gv_i] = addressB_package[addrsize*(gv_i+1)-1:addrsize*gv_i];
+	end
+	endgenerate
+	// done unpack
+
+	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
+	begin : parallel_simple_dualport_mem
+		simple_dualport_mem #(
+			.purpose(purpose),
+			.depth(depth),
+			.width(width)
+		) simple_dualport_mem (
+			.clk(clk),
+			.weA(weA_package[gv_i]),
+			.addressA(addressA[gv_i]),
+			.addressB(addressB[gv_i]),
+			.data_inA(data_inA[gv_i]),
+			.data_outB(data_outB[gv_i])
+		);
+	end
+	endgenerate
+endmodule
+
+// __________________________________________________________________________________________________________ //
+// __________________________________________________________________________________________________________ //
+
+module true_dualport_mem #(
+	parameter depth = 2,
+	parameter width = 16,
+	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(
 	input clk,
 	input weA,
 	input weB,
-	input [$clog2(depth)-1:0] addressA,
-	input [$clog2(depth)-1:0] addressB,
+	input [addrsize-1:0] addressA,
+	input [addrsize-1:0] addressB,
 	input [width-1:0] data_inA,
 	input [width-1:0] data_inB,
-	output reg[width-1:0] data_outA,
-	output reg[width-1:0] data_outB
+	output logic [width-1:0] data_outA = '0,
+	output logic [width-1:0] data_outB = '0
 );
 
-	reg [width-1:0] mem [depth-1:0];
+	logic [width-1:0] mem [depth-1:0];
 
 	always @(posedge clk) begin
 		if (weA)
@@ -158,46 +250,30 @@ module dual_port_memory #(
 		data_outB = mem[addressB];
 	end
 
-	//FPGA synth doesn't support initial. [TODO] find how to initialize FPGA RAMs
 	`ifdef SIM
 		integer i;
 		initial begin
-	    // for weight memory, initialize it to glorot normal distribution with mu = 0, sigma = sqrt[2/(fi+fo)]
-        // Marsaglia and Bray method to generate the random number following Gaussian distribution
-			#0.1; //memJ1 and memJ2 are read in the testbench at t=0. So wait a small while before reading from them
-			if(fi != 0) begin
-				for (i = 0; i < depth; i = i + 1) begin
-					if((fi+fo) == tb_DNN.fi[0] + tb_DNN.fo[0])
-						#0.1 mem[i] = tb_DNN.memJ1[($random%(`INITMEMSIZE/2)+(`INITMEMSIZE/2))]; //apparently $random%1000 gives a number in +/-999, so adding 1000 gives a number in [1,1999] as per the data file requirement
-					else if ((fi+fo) == tb_DNN.fi[1] + tb_DNN.fo[1])
-						#0.1 mem[i] = tb_DNN.memJ2[($random%(`INITMEMSIZE/2)+(`INITMEMSIZE/2))];
-				end
+			for (i = 0; i < depth; i = i + 1) begin //
+				mem[i] = '0;//($random%2)? $random%(2**23):-$random%(2**23);
 			end
-		// for other memories, initialize to 0 value by passing parameter fi=0 during instantiation
-			else begin
-				for (i = 0; i < depth; i = i + 1) begin //
-					mem[i] = 0;//($random%2)? $random%(2**23):-$random%(2**23);
-				end
-			end
-			data_outA = mem[addressA];
-			data_outB = mem[addressB];
+			data_outA = '0;
+			data_outB = '0;
 		end
 	`endif
 endmodule
 
-//set of identical dual port memory modules, each clocked by same clk. 1 whole set like this is a single collection
-module parallel_dual_port_mem #(
+
+module parallel_true_dualport_mem #(
 	parameter z = 8,
 	parameter depth = 2,
-	parameter width = 16, 
-	parameter fi = 0, 
-	parameter fo = 0
+	parameter width = 16,
+	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(	
 	input clk,
 	input [z-1:0] weA,
 	input [z-1:0] weB,
-	input [$clog2(depth)*z-1:0] addressA_package,
-	input [$clog2(depth)*z-1:0] addressB_package,
+	input [addrsize*z-1:0] addressA_package,
+	input [addrsize*z-1:0] addressB_package,
 	input [width*z-1:0] data_inA_package,
 	input [width*z-1:0] data_inB_package,
 	output [width*z-1:0] data_outA_package,
@@ -205,30 +281,29 @@ module parallel_dual_port_mem #(
 );
 
 	// unpack
-	wire [$clog2(depth)-1:0] addressA[z-1:0], addressB[z-1:0];
-	wire [width-1:0] data_inA[z-1:0], data_inB[z-1:0];
-	wire [width-1:0] data_outA[z-1:0], data_outB[z-1:0];
+	logic [addrsize-1:0] addressA[z-1:0], addressB[z-1:0];
+	logic [width-1:0] data_inA[z-1:0], data_inB[z-1:0];
+	logic [width-1:0] data_outA[z-1:0], data_outB[z-1:0];
 	genvar gv_i;
+	
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
 	begin : package_data_address
 		assign data_inA[gv_i] = data_inA_package[width*(gv_i+1)-1:width*gv_i];
 		assign data_outA_package[width*(gv_i+1)-1:width*gv_i] = data_outA[gv_i];
-		assign addressA[gv_i] = addressA_package[$clog2(depth)*(gv_i+1)-1:$clog2(depth)*gv_i];
+		assign addressA[gv_i] = addressA_package[addrsize*(gv_i+1)-1:addrsize*gv_i];
 		assign data_inB[gv_i] = data_inB_package[width*(gv_i+1)-1:width*gv_i];
 		assign data_outB_package[width*(gv_i+1)-1:width*gv_i] = data_outB[gv_i];
-		assign addressB[gv_i] = addressB_package[$clog2(depth)*(gv_i+1)-1:$clog2(depth)*gv_i];
+		assign addressB[gv_i] = addressB_package[addrsize*(gv_i+1)-1:addrsize*gv_i];
 	end
 	endgenerate
 	// done unpack
 
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
-	begin : parallel_mem
-		dual_port_memory #(
+	begin : parallel_true_dualport_mem
+		true_dualport_mem #(
 			.depth(depth),
-			.width(width), 
-			.fi(fi), 
-			.fo(fo)
-		) dual_port_memory (
+			.width(width)
+		) true_dualport_mem (
 			.clk(clk),
 			.addressA(addressA[gv_i]),
 			.weA(weA[gv_i]),
@@ -243,20 +318,19 @@ module parallel_dual_port_mem #(
 	endgenerate
 endmodule
 
-//set of collections. Each collection is a dual port parallel_mem, i.e. a set of memories of identical size and clocked by same clock
-module dual_port_mem_collection #(	
+
+module collection_true_dualport_mem #(	
 	parameter collection = 5,
 	parameter z = 8,
 	parameter depth = 2,
-	parameter width = 16, 
-	parameter fi = 0, 
-	parameter fo = 0
+	parameter width = 16,
+	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(
 	input clk,
 	input [collection*z-1:0] weA_package,
 	input [collection*z-1:0] weB_package,
-	input [collection*z*$clog2(depth)-1:0] addrA_package,
-	input [collection*z*$clog2(depth)-1:0] addrB_package,
+	input [collection*z*addrsize-1:0] addrA_package,
+	input [collection*z*addrsize-1:0] addrB_package,
 	input [collection*z*width-1:0] data_inA_package,
 	input [collection*z*width-1:0] data_inB_package,
 	output [collection*z*width-1:0] data_outA_package,
@@ -264,19 +338,20 @@ module dual_port_mem_collection #(
 );
 
 	// unpack
-	wire [z-1:0] weA[collection-1:0], weB[collection-1:0];
-	wire [$clog2(depth)*z-1:0] addrA[collection-1:0], addrB[collection-1:0];
-	wire [width*z-1:0] data_inA[collection-1:0], data_inB[collection-1:0];
-	wire [width*z-1:0] data_outA[collection-1:0], data_outB[collection-1:0];	
+	logic [z-1:0] weA[collection-1:0], weB[collection-1:0];
+	logic [addrsize*z-1:0] addrA[collection-1:0], addrB[collection-1:0];
+	logic [width*z-1:0] data_inA[collection-1:0], data_inB[collection-1:0];
+	logic [width*z-1:0] data_outA[collection-1:0], data_outB[collection-1:0];	
 	genvar gv_i;
+	
 	generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1)
 	begin : package_collection
 		assign weA[gv_i] = weA_package[z*(gv_i+1)-1:z*gv_i];
-		assign addrA[gv_i] = addrA_package[z*$clog2(depth)*(gv_i+1)-1:z*$clog2(depth)*gv_i];
+		assign addrA[gv_i] = addrA_package[z*addrsize*(gv_i+1)-1:z*addrsize*gv_i];
 		assign data_inA[gv_i] = data_inA_package[z*width*(gv_i+1)-1:z*width*gv_i];
 		assign data_outA_package[z*width*(gv_i+1)-1:z*width*gv_i] = data_outA[gv_i];
 		assign weB[gv_i] = weB_package[z*(gv_i+1)-1:z*gv_i];
-		assign addrB[gv_i] = addrB_package[z*$clog2(depth)*(gv_i+1)-1:z*$clog2(depth)*gv_i];
+		assign addrB[gv_i] = addrB_package[z*addrsize*(gv_i+1)-1:z*addrsize*gv_i];
 		assign data_inB[gv_i] = data_inB_package[z*width*(gv_i+1)-1:z*width*gv_i];
 		assign data_outB_package[z*width*(gv_i+1)-1:z*width*gv_i] = data_outB[gv_i];
 	end
@@ -284,14 +359,12 @@ module dual_port_mem_collection #(
 	// done unpack
 	
 	generate for (gv_i = 0; gv_i<collection; gv_i = gv_i + 1)
-	begin : mem_collection
-		parallel_dual_port_mem #(
+	begin : collection_true_dualport_mem
+		parallel_true_dualport_mem #(
 			.z(z), 
 			.width(width), 
-			.depth(depth), 
-			.fi(fi), 
-			.fo(fo)
-		) mem (
+			.depth(depth)
+		) parallel_true_dualport_mem (
 			.clk(clk),
 			.addressA_package(addrA[gv_i]),
 			.weA(weA[gv_i]),
