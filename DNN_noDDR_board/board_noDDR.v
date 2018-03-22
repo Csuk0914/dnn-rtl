@@ -29,7 +29,7 @@ module board_top_noDDR (
 	wire [127:0] group_data_out;
 
 	reg [15:0] output_count;
-	reg [9:0] output_store [0:199];
+	reg [9:0] output_store [0:255];
 	reg [7:0] store_count;
 	reg [6:0] cycle_index_reg [0:199];
 	reg [7:0] index_count;
