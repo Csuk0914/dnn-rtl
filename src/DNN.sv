@@ -9,14 +9,14 @@ module DNN #( // Parameter arrays need to be [31:0] for compilation
 	parameter width = 10, //Bit width
 	parameter int_bits = 2, //no. of integer bits
 	parameter L = 3, //Total no. of layers (including input and output)
-	parameter [31:0] actfn [0:L-2] = '{0,0}, //Activation function for all junctions. 0 = sigmoid, 1 = relu
+	parameter [31:0] actfn [0:L-2] = '{1,0}, //Activation function for all junctions. 0 = sigmoid, 1 = relu
 	parameter costfn = 1, //Cost function for output layer. 0 = quadcost, 1 = xentcost
 	
 	// FOR MNIST:
+	parameter [31:0] n [0:L-1] = '{1024, 64, 16}, //No. of neurons in every layer
 	parameter [31:0] fo [0:L-2] = '{8, 8}, //Fanout of all layers except for output
 	parameter [31:0] fi [0:L-2]  = '{128, 32}, //Fanin of all layers except for input
 	parameter [31:0] z [0:L-2]  = '{512, 32}, //Degree of parallelism of all junctions. No. of junctions = L-1
-	parameter [31:0] n [0:L-1] = '{1024, 64, 16}, //No. of neurons in every layer
 	
 	// FOR SMALL TEST NETWORK:
 	/*parameter [31:0] fo [0:L-2] = '{2, 2},
@@ -39,13 +39,12 @@ module DNN #( // Parameter arrays need to be [31:0] for compilation
 	// By making etapos an input, the problem of random weight updates after reset is solved, because each etapos is introduced with input data
 	input clk,
 	input reset, //active high
+	
+	output cycle_clk,
+	output [$clog2(cpc)-1:0] cycle_index, //Bits to hold cycle number [Eg: 32 weights, z=8 means 32/8+2 = 6 cycles, so cycle_index is 3b]
 	output [z[L-2]/fi[L-2]-1:0] ansL, //ideal output (ans0 after going through all layers) only for the current z neurons (UNLIKE actL_alln)
 	output logic [n[L-1]-1:0] actL_alln = '0 //Actual output [Eg: 4/4=1 output neuron processed per clock] for ALL OUTPUT NEURONS
 );
-
-	//logic [z[L-2]/fi[L-2]-1:0] actL1; //output from layer_block every clk
-	logic cycle_clk;
-	logic [$clog2(cpc)-1:0] cycle_index; //Bits to hold cycle number [Eg: 32 weights, z=8 means 32/8+2 = 6 cycles, so cycle_index is 3b]
 
 	/* Treating all the hidden layers as a black box, following are its I/O:
 			act1, adot1 are 'inputs' from input layer to black box

@@ -3,113 +3,6 @@
 
 `timescale 1ns/100ps
 
-
-// Converts {from_sign_bits,from_int_bits,from_frac_bits} input to {sign_bits,int_bits,frac_bits} output
-// Can support from_frac_bits = 0 or frac_bits = 0 or both
-// Cannot support from_sign_bits=0, sign_bits = 0, from_int_bits = 0, int_bits = 0
-//Supports rounding up output based on fractional part, e.g. 7.5 in 1,3,1 becomes 8 in 1,4,0
-// Assumes all from_sign bits are the same. If different (exception), the desired output is the max positive value possible
-// Eg: Converting from {2,6,16} to {1,3,8}. If the input is 2^6 = 24'b010000... (can be the output of a multiplier), then the sign bits are not the same. In this case, output is 2^3 - 2^-8 = 12'b01111...
-module bit_scaler #(
-	// If actual frac_bits or from_frac_bits is 0, give it a dummy high value to avoid part select problems 
-	
-	//Input bit widths
-	parameter from_width = 26,
-	parameter from_sign_bits = 2,
-	parameter from_int_bits = 8,
-	localparam from_frac_bits_actual = from_width-from_sign_bits-from_int_bits,
-	localparam from_frac_bits = (from_frac_bits_actual == 0) ? from_width : from_frac_bits_actual,
-	
-	// Output bit widths
-	parameter width = 12,
-	parameter sign_bits = 1,
-	parameter int_bits = 3,
-	localparam frac_bits_actual = width-sign_bits-int_bits,
-	localparam frac_bits = (frac_bits_actual == 0) ? width : frac_bits_actual	
-)(
-	input signed [from_width-1:0] in,
-	output logic signed [width-1:0] out
-);
-	//input breakup
-	logic signed [from_sign_bits-1:0] in_sign;
-	logic signed [from_int_bits-1:0] in_int;
-	logic signed [from_int_bits:0] in_intex;
-	logic signed [from_frac_bits-1:0] in_frac;
-	logic in_leftout_frac = 0; //If from_frac_bits > frac_bits (i.e. truncation), this stores the MSB of left out frac part in input
-	
-	//output breakup
-	logic signed [sign_bits-1:0] out_sign;
-	logic signed [int_bits-1:0] out_int;
-	logic signed [frac_bits-1:0] out_frac;
-	logic signed [width-1:0] out_temp;
-	
-	//input assignments
-	assign in_sign = in[from_width-1 -: from_sign_bits];
-	assign in_int = in[from_width-from_sign_bits-1 -: from_int_bits];
-	assign in_frac = (from_width-from_sign_bits-from_int_bits == 0) ? '0 : in[from_frac_bits-1:0];
-	assign in_intex = {in_sign[0],in_int};
-	
-	always_comb begin
-		out_sign = {sign_bits{in[from_width-1]}};
-		if (in[from_width-1] != in[from_width-from_sign_bits]) begin //If sign bits are not the same, result is max positive
-			out_int = '1;
-			out_frac = '1;
-		end else begin
-			if (from_int_bits<=int_bits) begin
-				out_int = { {(int_bits-from_int_bits){in[from_width-1]}}, in_int }; // small to big : need sign extension
-				//BELOW: in case from_frac_bits_actual=0, then out_frac should be all 0s. That will happen in both cases
-				if (from_frac_bits<=frac_bits) begin
-					out_frac = {in_frac, {(frac_bits-from_frac_bits){1'b0}}}; //small to big : need to add 0s
-					if (frac_bits_actual==0)
-						in_leftout_frac = in_frac[from_frac_bits-1]; //rounding should happen based on MSB of input frac part
-					else //if frac_bits_actual is more than from_frac_bits
-						in_leftout_frac = 0; //trivial, since nothing is left out
-			 	end else begin //in case from_frac_bits_actual=0, then out_frac should be all 0s, which will happen here
-					out_frac = in_frac[from_frac_bits-1 -: frac_bits]; //big to small : need truncation
-					if (frac_bits_actual==0)
-						in_leftout_frac = in_frac[from_frac_bits-1];
-					else //if frac_bits_actual is less than from_frac_bits
-						in_leftout_frac = in_frac[from_frac_bits-frac_bits-1]; //take MSB of left out part for rounding
-				end
-			end else begin
-				if (in_intex > 2**int_bits-1) begin //big to small positive overflow, set output to max positive
-					out_int = '1;
-					out_frac = '1;
-				end else if (in_intex < -(2**int_bits)) begin //big to small negative overflow, set output to max negative
-					out_int = '0;
-					out_frac = '0;
-				end else begin
-					out_int = in_int[int_bits-1:0]; //big to small normal case, output int bits are LSB int bits of input
-					//BELOW: in case from_frac_bits_actual=0, then out_frac should be all 0s. That will happen in both cases
-					if (from_frac_bits<=frac_bits) begin
-						out_frac = {in_frac, {(frac_bits-from_frac_bits){1'b0}}}; //small to big : need to add 0s
-						if (frac_bits_actual==0)
-							in_leftout_frac = in_frac[from_frac_bits-1]; //rounding should happen based on MSB of input frac part
-						else //if frac_bits_actual is more than from_frac_bits
-							in_leftout_frac = 0; //trivial, since nothing is left out
-					end else begin //in case from_frac_bits_actual=0, then out_frac should be all 0s, which will happen here
-						out_frac = in_frac[from_frac_bits-1 -: frac_bits]; //big to small : need truncation
-						if (frac_bits_actual==0)
-							in_leftout_frac = in_frac[from_frac_bits-1];
-						else //if frac_bits_actual is less than from_frac_bits
-							in_leftout_frac = in_frac[from_frac_bits-frac_bits-1]; //take MSB of left out part for rounding
-					end
-				end
-			end
-		end	
-		if ((width-sign_bits-int_bits)==0) //frac_bits is supposed to be 0
-			out_temp = {out_sign, out_int};
-		else
-			out_temp = {out_sign, out_int, out_frac};
-	end
-	
-	//Round up out if applicable
-	assign out = ( in_leftout_frac == 0 || out_temp == {{sign_bits{1'b0}},{(width-sign_bits){1'b1}}} ) ?
-					//Rounding up shouldn't be done if out_temp is max positive value
-					out_temp : out_temp+1;
-endmodule
-
-
 // Custom made signed multiplier where output is modified to have same fixed point width setup as inputs
 // Can use normal logic (parametrizable), or IP (needs to be re-generated for every parameter change)
 module multiplier #(
@@ -422,26 +315,6 @@ module max_finder_set #(
 endmodule
 
 
-// This is a parallel register with synchronous reset, i.e. width 1-bit DFFs
-// [MAYBE] Use this for all DFFs not triggered by cycle_clk, i.e. use for all clk triggered DFFs
-/******** COMMENT THIS OUT IF NOT USED ********/
-module DFF_syncreset #(
-	parameter width = 16 //No. of DFFs in parallel
-)(
-	input clk,
-	input reset,
-	input [width-1:0] d,
-	output logic [width-1:0] q = 0
-);
-	always @(posedge clk) begin
-		if (reset)
-			q <= 0;
-		else
-			q <= d;
-	end
-endmodule
-
-
 // This is a parallel register with asynchronous reset, i.e. width 1-bit DFFs
 module DFF #(
 	parameter width = 16 //No. of DFFs in parallel
@@ -459,15 +332,6 @@ module DFF #(
 	end
 endmodule
 
-module DFF_no_reset #(
-	parameter width = 16 //No. of DFFs in parallel
-)(
-	input clk,
-	input [width-1:0] d,
-	output logic [width-1:0] q = 0
-);
-	always @(posedge clk) q <= d;
-endmodule
 
 // This is a serial bank of ASYNC parallel registers, i.e. depth banks, each bank has width 1-bit ASYNC DFFs
 module shift_reg #(
@@ -528,3 +392,145 @@ module shift_reg #(
 		end
 	end */
 endmodule
+
+
+
+//////************************** UNUSED COMPONENTS **************************//////
+
+/*
+// Converts {from_sign_bits,from_int_bits,from_frac_bits} input to {sign_bits,int_bits,frac_bits} output
+// Can support from_frac_bits = 0 or frac_bits = 0 or both
+// Cannot support from_sign_bits=0, sign_bits = 0, from_int_bits = 0, int_bits = 0
+//Supports rounding up output based on fractional part, e.g. 7.5 in 1,3,1 becomes 8 in 1,4,0
+// Assumes all from_sign bits are the same. If different (exception), the desired output is the max positive value possible
+// Eg: Converting from {2,6,16} to {1,3,8}. If the input is 2^6 = 24'b010000... (can be the output of a multiplier), then the sign bits are not the same. In this case, output is 2^3 - 2^-8 = 12'b01111...
+module bit_scaler #(
+	// If actual frac_bits or from_frac_bits is 0, give it a dummy high value to avoid part select problems 
+	
+	//Input bit widths
+	parameter from_width = 26,
+	parameter from_sign_bits = 2,
+	parameter from_int_bits = 8,
+	localparam from_frac_bits_actual = from_width-from_sign_bits-from_int_bits,
+	localparam from_frac_bits = (from_frac_bits_actual == 0) ? from_width : from_frac_bits_actual,
+	
+	// Output bit widths
+	parameter width = 12,
+	parameter sign_bits = 1,
+	parameter int_bits = 3,
+	localparam frac_bits_actual = width-sign_bits-int_bits,
+	localparam frac_bits = (frac_bits_actual == 0) ? width : frac_bits_actual	
+)(
+	input signed [from_width-1:0] in,
+	output logic signed [width-1:0] out
+);
+	//input breakup
+	logic signed [from_sign_bits-1:0] in_sign;
+	logic signed [from_int_bits-1:0] in_int;
+	logic signed [from_int_bits:0] in_intex;
+	logic signed [from_frac_bits-1:0] in_frac;
+	logic in_leftout_frac = 0; //If from_frac_bits > frac_bits (i.e. truncation), this stores the MSB of left out frac part in input
+	
+	//output breakup
+	logic signed [sign_bits-1:0] out_sign;
+	logic signed [int_bits-1:0] out_int;
+	logic signed [frac_bits-1:0] out_frac;
+	logic signed [width-1:0] out_temp;
+	
+	//input assignments
+	assign in_sign = in[from_width-1 -: from_sign_bits];
+	assign in_int = in[from_width-from_sign_bits-1 -: from_int_bits];
+	assign in_frac = (from_width-from_sign_bits-from_int_bits == 0) ? '0 : in[from_frac_bits-1:0];
+	assign in_intex = {in_sign[0],in_int};
+	
+	always_comb begin
+		out_sign = {sign_bits{in[from_width-1]}};
+		if (in[from_width-1] != in[from_width-from_sign_bits]) begin //If sign bits are not the same, result is max positive
+			out_int = '1;
+			out_frac = '1;
+		end else begin
+			if (from_int_bits<=int_bits) begin
+				out_int = { {(int_bits-from_int_bits){in[from_width-1]}}, in_int }; // small to big : need sign extension
+				//BELOW: in case from_frac_bits_actual=0, then out_frac should be all 0s. That will happen in both cases
+				if (from_frac_bits<=frac_bits) begin
+					out_frac = {in_frac, {(frac_bits-from_frac_bits){1'b0}}}; //small to big : need to add 0s
+					if (frac_bits_actual==0)
+						in_leftout_frac = in_frac[from_frac_bits-1]; //rounding should happen based on MSB of input frac part
+					else //if frac_bits_actual is more than from_frac_bits
+						in_leftout_frac = 0; //trivial, since nothing is left out
+			 	end else begin //in case from_frac_bits_actual=0, then out_frac should be all 0s, which will happen here
+					out_frac = in_frac[from_frac_bits-1 -: frac_bits]; //big to small : need truncation
+					if (frac_bits_actual==0)
+						in_leftout_frac = in_frac[from_frac_bits-1];
+					else //if frac_bits_actual is less than from_frac_bits
+						in_leftout_frac = in_frac[from_frac_bits-frac_bits-1]; //take MSB of left out part for rounding
+				end
+			end else begin
+				if (in_intex > 2**int_bits-1) begin //big to small positive overflow, set output to max positive
+					out_int = '1;
+					out_frac = '1;
+				end else if (in_intex < -(2**int_bits)) begin //big to small negative overflow, set output to max negative
+					out_int = '0;
+					out_frac = '0;
+				end else begin
+					out_int = in_int[int_bits-1:0]; //big to small normal case, output int bits are LSB int bits of input
+					//BELOW: in case from_frac_bits_actual=0, then out_frac should be all 0s. That will happen in both cases
+					if (from_frac_bits<=frac_bits) begin
+						out_frac = {in_frac, {(frac_bits-from_frac_bits){1'b0}}}; //small to big : need to add 0s
+						if (frac_bits_actual==0)
+							in_leftout_frac = in_frac[from_frac_bits-1]; //rounding should happen based on MSB of input frac part
+						else //if frac_bits_actual is more than from_frac_bits
+							in_leftout_frac = 0; //trivial, since nothing is left out
+					end else begin //in case from_frac_bits_actual=0, then out_frac should be all 0s, which will happen here
+						out_frac = in_frac[from_frac_bits-1 -: frac_bits]; //big to small : need truncation
+						if (frac_bits_actual==0)
+							in_leftout_frac = in_frac[from_frac_bits-1];
+						else //if frac_bits_actual is less than from_frac_bits
+							in_leftout_frac = in_frac[from_frac_bits-frac_bits-1]; //take MSB of left out part for rounding
+					end
+				end
+			end
+		end	
+		if ((width-sign_bits-int_bits)==0) //frac_bits is supposed to be 0
+			out_temp = {out_sign, out_int};
+		else
+			out_temp = {out_sign, out_int, out_frac};
+	end
+	
+	//Round up out if applicable
+	assign out = ( in_leftout_frac == 0 || out_temp == {{sign_bits{1'b0}},{(width-sign_bits){1'b1}}} ) ?
+					//Rounding up shouldn't be done if out_temp is max positive value
+					out_temp : out_temp+1;
+endmodule
+
+
+// This is a parallel register with synchronous reset, i.e. width 1-bit DFFs
+// [MAYBE] Use this for all DFFs not triggered by cycle_clk, i.e. use for all clk triggered DFFs
+module DFF_syncreset #(
+	parameter width = 16 //No. of DFFs in parallel
+)(
+	input clk,
+	input reset,
+	input [width-1:0] d,
+	output logic [width-1:0] q = 0
+);
+	always @(posedge clk) begin
+		if (reset)
+			q <= 0;
+		else
+			q <= d;
+	end
+endmodule
+
+
+module DFF_no_reset #(
+	parameter width = 16 //No. of DFFs in parallel
+)(
+	input clk,
+	input [width-1:0] d,
+	output logic [width-1:0] q = 0
+);
+	always @(posedge clk) q <= d;
+endmodule
+
+*/

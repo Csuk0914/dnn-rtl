@@ -1,8 +1,67 @@
 // This file contains a number of different types of memories
 `timescale 1ns/100ps
 
-`define SIM //Comment this for synthesis
-`define INITMEMSIZE 2000 //number of elements in gaussian_list
+
+//ideal out memory
+module idealout_singleport_mem #(
+	parameter depth = 12544,
+	parameter width = 10,
+	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
+)(
+	input clk,
+	input reset,
+	input [addrsize-1:0] address,
+	input we,
+	input [width-1:0] data_in,
+	output [width-1:0] data_out
+);
+
+	// xpm_memory_spram: Single Port RAM
+	// Xilinx Parameterized Macro, Version 2017.4
+	xpm_memory_spram # (
+	  
+	  // Common module parameters
+	  .MEMORY_SIZE             (width*depth),     //positive integer
+	  .MEMORY_PRIMITIVE        ("auto"),          //string; "auto", "distributed", "block" or "ultra";
+	  .MEMORY_INIT_FILE        ("train_idealout_HEX.mem"),          //string; "none" or "<filename>.mem" 
+	  .MEMORY_INIT_PARAM       (""    ),          //string;
+	  .USE_MEM_INIT            (1),               //integer; 0,1
+	  .WAKEUP_TIME             ("disable_sleep"), //string; "disable_sleep" or "use_sleep_pin" 
+	  .MESSAGE_CONTROL         (0),               //integer; 0,1
+	  .MEMORY_OPTIMIZATION     ("true"),          //string; "true", "false" 
+	
+	  // Port A module parameters
+	  .WRITE_DATA_WIDTH_A      (width),              //positive integer
+	  .READ_DATA_WIDTH_A       (width),              //positive integer
+	  .BYTE_WRITE_WIDTH_A      (width),              //integer; 8, 9, or WRITE_DATA_WIDTH_A value
+	  .ADDR_WIDTH_A            (addrsize),               //positive integer
+	  .READ_RESET_VALUE_A      ("0"),             //string
+	  .ECC_MODE                ("no_ecc"),        //string; "no_ecc", "encode_only", "decode_only" or "both_encode_and_decode" 
+	  .AUTO_SLEEP_TIME         (0),               //Do not Change
+	  .READ_LATENCY_A          (1),               //non-negative integer
+	  .WRITE_MODE_A            ("read_first")     //string; "write_first", "read_first", "no_change" 
+	
+	) singleportmem (
+	
+	  // Common module ports
+	  .sleep                   (1'b0),
+	
+	  // Port A module ports
+	  .clka                    (clk),
+	  .rsta                    (reset),
+	  .ena                     (1'b1),
+	  .regcea                  (1'b1),
+	  .wea                     (we),
+	  .addra                   (address),
+	  .dina                    (data_in),
+	  .injectsbiterra          (1'b0),
+	  .injectdbiterra          (1'b0),
+	  .douta                   (data_out),
+	  .sbiterra                (),
+	  .dbiterra                ()
+	);
+endmodule
+
 
 //basic single port memory module
 module singleport_mem #(
@@ -11,28 +70,57 @@ module singleport_mem #(
 	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(
 	input clk,
+	input reset,
 	input [addrsize-1:0] address,
 	input we, //write enable
 	input [width-1:0] data_in,
-	output logic [width-1:0] data_out = '0
+	output [width-1:0] data_out
 );
 	
-	logic [width-1:0] mem [depth-1:0];
-
-	always @(posedge clk) begin
-		data_out = mem[address]; //can't hurt to read, even when we=1. If we=1, old value is read out and then new value is written
-		if (we)
-			mem[address] = data_in;
-	end
-
-	`ifdef SIM
-		integer i;
-		initial begin
-			for (i = 0; i < depth; i = i + 1)
-				mem[i] = '0;//($random%2)? $random%(2**22):-$random%(2**22);
-			data_out = '0;
-		end
-	`endif
+	// xpm_memory_spram: Single Port RAM
+	// Xilinx Parameterized Macro, Version 2017.4
+	xpm_memory_spram # (
+	  
+	  // Common module parameters
+	  .MEMORY_SIZE             (width*depth),     //positive integer
+	  .MEMORY_PRIMITIVE        ("auto"),          //string; "auto", "distributed", "block" or "ultra";
+	  .MEMORY_INIT_FILE        ("none"),          //string; "none" or "<filename>.mem" 
+	  .MEMORY_INIT_PARAM       (""    ),          //string;
+	  .USE_MEM_INIT            (1),               //integer; 0,1
+	  .WAKEUP_TIME             ("disable_sleep"), //string; "disable_sleep" or "use_sleep_pin" 
+	  .MESSAGE_CONTROL         (0),               //integer; 0,1
+	  .MEMORY_OPTIMIZATION     ("true"),          //string; "true", "false" 
+	
+	  // Port A module parameters
+	  .WRITE_DATA_WIDTH_A      (width),              //positive integer
+	  .READ_DATA_WIDTH_A       (width),              //positive integer
+	  .BYTE_WRITE_WIDTH_A      (width),              //integer; 8, 9, or WRITE_DATA_WIDTH_A value
+	  .ADDR_WIDTH_A            (addrsize),               //positive integer
+	  .READ_RESET_VALUE_A      ("0"),             //string
+	  .ECC_MODE                ("no_ecc"),        //string; "no_ecc", "encode_only", "decode_only" or "both_encode_and_decode" 
+	  .AUTO_SLEEP_TIME         (0),               //Do not Change
+	  .READ_LATENCY_A          (1),               //non-negative integer
+	  .WRITE_MODE_A            ("read_first")     //string; "write_first", "read_first", "no_change" 
+	
+	) singleportmem (
+	
+	  // Common module ports
+	  .sleep                   (1'b0),
+	
+	  // Port A module ports
+	  .clka                    (clk),
+	  .rsta                    (reset),
+	  .ena                     (1'b1),
+	  .regcea                  (1'b1),
+	  .wea                     (we),
+	  .addra                   (address),
+	  .dina                    (data_in),
+	  .injectsbiterra          (1'b0),
+	  .injectdbiterra          (1'b0),
+	  .douta                   (data_out),
+	  .sbiterra                (),
+	  .dbiterra                ()
+	);
 endmodule
 
 
@@ -43,6 +131,7 @@ module parallel_singleport_mem #(
 	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(	
 	input clk,
+	input reset,
 	input [addrsize*z-1:0] address_package,
 	input [z-1:0] we,
 	input [width*z-1:0] data_in_package,
@@ -70,7 +159,8 @@ module parallel_singleport_mem #(
 			.depth(depth),
 			.width(width)
 		) singleport_mem (
-			.clk(clk),
+			.clk,
+			.reset,
 			.address(address[gv_i]),
 			.we(we[gv_i]),
 			.data_in(data_in[gv_i]),
@@ -89,6 +179,7 @@ module collection_singleport_mem #(
 	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(
 	input clk,
+	input reset,
 	input [collection*z-1:0] we_package,
 	input [collection*z*addrsize-1:0] addr_package,
 	input [collection*z*width-1:0] data_in_package,
@@ -119,7 +210,8 @@ module collection_singleport_mem #(
 			.width(width), 
 			.depth(depth)
 		) parallel_singleport_mem (
-			.clk(clk),
+			.clk,
+			.reset,
 			.address_package(addr[gv_i]),
 			.we(we[gv_i]),
 			.data_in_package(data_in[gv_i]),
@@ -139,34 +231,132 @@ module simple_dualport_mem #(
 	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(
 	input clk,
+	input reset,
 	input weA,
 	input [addrsize-1:0] addressA,
 	input [addrsize-1:0] addressB,
 	input [width-1:0] data_inA,
-	output logic [width-1:0] data_outB = '0
+	output [width-1:0] data_outB
 );
 
-	logic [width-1:0] mem [depth-1:0];
-
-	always @(posedge clk) begin
-		if (weA)
-			mem[addressA] = data_inA;
-		data_outB = mem[addressB]; //As usual, we always read out irrespective of we, because read is not destructive
+	generate if (purpose==1) begin: input_wbmem_gen
+	
+		// xpm_memory_sdpram: Simple Dual Port RAM
+		// Xilinx Parameterized Macro, Version 2017.4
+		xpm_memory_sdpram # (
+		
+		  // Common module parameters
+		  .MEMORY_SIZE             (depth*width),            //positive integer
+		  .MEMORY_PRIMITIVE        ("auto"),          //string; "auto", "distributed", "block" or "ultra";
+		  .CLOCKING_MODE           ("common_clock"),  //string; "common_clock", "independent_clock" 
+		  .MEMORY_INIT_FILE        ("none"),          //string; "none" or "<filename>.mem" 
+		  .MEMORY_INIT_PARAM       ("3DA,002,3FD,3FB,016,00E,004,3E8,007,00D,3E9,3F4,002,3FF,008,00E"),          //string;
+		  .USE_MEM_INIT            (1),               //integer; 0,1
+		  .WAKEUP_TIME             ("disable_sleep"), //string; "disable_sleep" or "use_sleep_pin" 
+		  .MESSAGE_CONTROL         (0),               //integer; 0,1
+		  .ECC_MODE                ("no_ecc"),        //string; "no_ecc", "encode_only", "decode_only" or "both_encode_and_decode" 
+		  .AUTO_SLEEP_TIME         (0),               //Do not Change
+		  .USE_EMBEDDED_CONSTRAINT (0),               //integer: 0,1
+		  .MEMORY_OPTIMIZATION     ("true"),          //string; "true", "false" 
+		
+		  // Port A module parameters
+		  .WRITE_DATA_WIDTH_A      (width),              //positive integer
+		  .BYTE_WRITE_WIDTH_A      (width),              //integer; 8, 9, or WRITE_DATA_WIDTH_A value
+		  .ADDR_WIDTH_A            (addrsize),               //positive integer
+		
+		  // Port B module parameters
+		  .READ_DATA_WIDTH_B       (width),              //positive integer
+		  .ADDR_WIDTH_B            (addrsize),               //positive integer
+		  .READ_RESET_VALUE_B      ("0"),             //string
+		  .READ_LATENCY_B          (1),               //non-negative integer
+		  .WRITE_MODE_B            ("read_first")      //string; "write_first", "read_first", "no_change" 
+		
+		) simpledualport_input_wbmem (
+		
+		  // Common module ports
+		  .sleep                   (1'b0),
+		
+		  // Port A module ports
+		  .clka                    (clk),
+		  .ena                     (1'b1),
+		  .wea                     (weA),
+		  .addra                   (addressA),
+		  .dina                    (data_inA),
+		  .injectsbiterra          (1'b0),
+		  .injectdbiterra          (1'b0),
+		
+		  // Port B module ports
+		  .clkb                    (1'b0),
+		  .rstb                    (reset),
+		  .enb                     (1'b1),
+		  .regceb                  (1'b1),
+		  .addrb                   (addressB),
+		  .doutb                   (data_outB),
+		  .sbiterrb                (),
+		  .dbiterrb                ()
+		
+		);
+		
+	end else if (purpose==2) begin: hidden_wbmem_gen
+			
+		// xpm_memory_sdpram: Simple Dual Port RAM
+		// Xilinx Parameterized Macro, Version 2017.4
+		xpm_memory_sdpram # (
+		
+		  // Common module parameters
+		  .MEMORY_SIZE             (depth*width),            //positive integer
+		  .MEMORY_PRIMITIVE        ("auto"),          //string; "auto", "distributed", "block" or "ultra";
+		  .CLOCKING_MODE           ("common_clock"),  //string; "common_clock", "independent_clock" 
+		  .MEMORY_INIT_FILE        ("none"),          //string; "none" or "<filename>.mem" 
+		  .MEMORY_INIT_PARAM       ("3D2,3E2,008,030,3F9,3E8,020,3FD,043,048,003,008,017,3F9,3DC,009"),          //string;
+		  .USE_MEM_INIT            (1),               //integer; 0,1
+		  .WAKEUP_TIME             ("disable_sleep"), //string; "disable_sleep" or "use_sleep_pin" 
+		  .MESSAGE_CONTROL         (0),               //integer; 0,1
+		  .ECC_MODE                ("no_ecc"),        //string; "no_ecc", "encode_only", "decode_only" or "both_encode_and_decode" 
+		  .AUTO_SLEEP_TIME         (0),               //Do not Change
+		  .USE_EMBEDDED_CONSTRAINT (0),               //integer: 0,1
+		  .MEMORY_OPTIMIZATION     ("true"),          //string; "true", "false" 
+		
+		  // Port A module parameters
+		  .WRITE_DATA_WIDTH_A      (width),              //positive integer
+		  .BYTE_WRITE_WIDTH_A      (width),              //integer; 8, 9, or WRITE_DATA_WIDTH_A value
+		  .ADDR_WIDTH_A            (addrsize),               //positive integer
+		
+		  // Port B module parameters
+		  .READ_DATA_WIDTH_B       (width),              //positive integer
+		  .ADDR_WIDTH_B            (addrsize),               //positive integer
+		  .READ_RESET_VALUE_B      ("0"),             //string
+		  .READ_LATENCY_B          (1),               //non-negative integer
+		  .WRITE_MODE_B            ("read_first")      //string; "write_first", "read_first", "no_change" 
+		
+		) simpledualport_hidden_wbmem (
+		
+		  // Common module ports
+		  .sleep                   (1'b0),
+		
+		  // Port A module ports
+		  .clka                    (clk),
+		  .ena                     (1'b1),
+		  .wea                     (weA),
+		  .addra                   (addressA),
+		  .dina                    (data_inA),
+		  .injectsbiterra          (1'b0),
+		  .injectdbiterra          (1'b0),
+		
+		  // Port B module ports
+		  .clkb                    (1'b0),
+		  .rstb                    (reset),
+		  .enb                     (1'b1),
+		  .regceb                  (1'b1),
+		  .addrb                   (addressB),
+		  .doutb                   (data_outB),
+		  .sbiterrb                (),
+		  .dbiterrb                ()
+		
+		);
+		
 	end
-
-	`ifdef SIM
-		integer i;
-		initial begin
-			#0.1; //memJ1 and memJ2 are read in the testbench at t=0. So wait a small while before reading from them
-			for (i = 0; i < depth; i = i + 1) begin
-				if (purpose==1)
-					#0.1 mem[i] = tb_DNN.memJ1[($random%(`INITMEMSIZE/2)+(`INITMEMSIZE/2))]; //apparently $random%1000 gives a number in +/-999, so adding 1000 gives a number in [1,1999] as per the data file requirement
-				else if (purpose==2)
-					#0.1 mem[i] = tb_DNN.memJ2[($random%(`INITMEMSIZE/2)+(`INITMEMSIZE/2))];
-			end
-			data_outB = mem[addressB];
-		end
-	`endif
+	endgenerate
 endmodule
 
 
@@ -178,6 +368,7 @@ module parallel_simple_dualport_mem #(
 	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(	
 	input clk,
+	input reset,
 	input [z-1:0] weA_package,
 	input [addrsize*z-1:0] addressA_package,
 	input [addrsize*z-1:0] addressB_package,
@@ -208,7 +399,8 @@ module parallel_simple_dualport_mem #(
 			.depth(depth),
 			.width(width)
 		) simple_dualport_mem (
-			.clk(clk),
+			.clk,
+			.reset,
 			.weA(weA_package[gv_i]),
 			.addressA(addressA[gv_i]),
 			.addressB(addressB[gv_i]),
@@ -228,38 +420,87 @@ module true_dualport_mem #(
 	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(
 	input clk,
+	input reset,
 	input weA,
 	input weB,
 	input [addrsize-1:0] addressA,
 	input [addrsize-1:0] addressB,
 	input [width-1:0] data_inA,
 	input [width-1:0] data_inB,
-	output logic [width-1:0] data_outA = '0,
-	output logic [width-1:0] data_outB = '0
+	output [width-1:0] data_outA,
+	output [width-1:0] data_outB
 );
 
-	logic [width-1:0] mem [depth-1:0];
-
-	always @(posedge clk) begin
-		if (weA)
-			mem[addressA] = data_inA;
-		if (weB)
-			mem[addressB] = data_inB;
-		//As usual, we always read out irrespective of we, because read is not destructive
-		data_outA = mem[addressA];
-		data_outB = mem[addressB];
-	end
-
-	`ifdef SIM
-		integer i;
-		initial begin
-			for (i = 0; i < depth; i = i + 1) begin //
-				mem[i] = '0;//($random%2)? $random%(2**23):-$random%(2**23);
-			end
-			data_outA = '0;
-			data_outB = '0;
-		end
-	`endif
+	// xpm_memory_tdpram: True Dual Port RAM
+	// Xilinx Parameterized Macro, Version 2017.4
+	xpm_memory_tdpram # (
+	
+	  // Common module parameters
+	  .MEMORY_SIZE             (depth*width),            //positive integer
+	  .MEMORY_PRIMITIVE        ("auto"),          //string; "auto", "distributed", "block" or "ultra";
+	  .CLOCKING_MODE           ("common_clock"),  //string; "common_clock", "independent_clock" 
+	  .MEMORY_INIT_FILE        ("none"),          //string; "none" or "<filename>.mem" 
+	  .MEMORY_INIT_PARAM       (""    ),          //string;
+	  .USE_MEM_INIT            (1),               //integer; 0,1
+	  .WAKEUP_TIME             ("disable_sleep"), //string; "disable_sleep" or "use_sleep_pin" 
+	  .MESSAGE_CONTROL         (0),               //integer; 0,1
+	  .ECC_MODE                ("no_ecc"),        //string; "no_ecc", "encode_only", "decode_only" or "both_encode_and_decode" 
+	  .AUTO_SLEEP_TIME         (0),               //Do not Change
+	  .USE_EMBEDDED_CONSTRAINT (0),               //integer: 0,1
+	  .MEMORY_OPTIMIZATION     ("true"),          //string; "true", "false" 
+	
+	  // Port A module parameters
+	  .WRITE_DATA_WIDTH_A      (width),              //positive integer
+	  .READ_DATA_WIDTH_A       (width),              //positive integer
+	  .BYTE_WRITE_WIDTH_A      (width),              //integer; 8, 9, or WRITE_DATA_WIDTH_A value
+	  .ADDR_WIDTH_A            (addrsize),               //positive integer
+	  .READ_RESET_VALUE_A      ("0"),             //string
+	  .READ_LATENCY_A          (1),               //non-negative integer
+	  .WRITE_MODE_A            ("read_first"),     //string; "write_first", "read_first", "no_change" 
+	
+	  // Port B module parameters
+	  .WRITE_DATA_WIDTH_B      (width),              //positive integer
+	  .READ_DATA_WIDTH_B       (width),              //positive integer
+	  .BYTE_WRITE_WIDTH_B      (width),              //integer; 8, 9, or WRITE_DATA_WIDTH_B value
+	  .ADDR_WIDTH_B            (addrsize),               //positive integer
+	  .READ_RESET_VALUE_B      ("0"),             //vector of READ_DATA_WIDTH_B bits
+	  .READ_LATENCY_B          (1),               //non-negative integer
+	  .WRITE_MODE_B            ("read_first")      //string; "write_first", "read_first", "no_change" 
+	
+	) truedualportmem_hidden_DMp (
+	
+	  // Common module ports
+	  .sleep                   (1'b0),
+	
+	  // Port A module ports
+	  .clka                    (clk),
+	  .rsta                    (reset),
+	  .ena                     (1'b1),
+	  .regcea                  (1'b1),
+	  .wea                     (weA),
+	  .addra                   (addressA),
+	  .dina                    (data_inA),
+	  .injectsbiterra          (1'b0),
+	  .injectdbiterra          (1'b0),
+	  .douta                   (data_outA),
+	  .sbiterra                (),
+	  .dbiterra                (),
+	
+	  // Port B module ports
+	  .clkb                    (1'b0),
+	  .rstb                    (reset),
+	  .enb                     (1'b1),
+	  .regceb                  (1'b1),
+	  .web                     (weB),
+	  .addrb                   (addressB),
+	  .dinb                    (data_inB),
+	  .injectsbiterrb          (1'b0),
+	  .injectdbiterrb          (1'b0),
+	  .doutb                   (data_outB),
+	  .sbiterrb                (),
+	  .dbiterrb                ()
+	
+	);
 endmodule
 
 
@@ -270,6 +511,7 @@ module parallel_true_dualport_mem #(
 	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(	
 	input clk,
+	input reset,
 	input [z-1:0] weA,
 	input [z-1:0] weB,
 	input [addrsize*z-1:0] addressA_package,
@@ -304,7 +546,8 @@ module parallel_true_dualport_mem #(
 			.depth(depth),
 			.width(width)
 		) true_dualport_mem (
-			.clk(clk),
+			.clk,
+			.reset,
 			.addressA(addressA[gv_i]),
 			.weA(weA[gv_i]),
 			.data_inA(data_inA[gv_i]),
@@ -327,6 +570,7 @@ module collection_true_dualport_mem #(
 	localparam addrsize = (depth==1) ? 1 : $clog2(depth)
 )(
 	input clk,
+	input reset,
 	input [collection*z-1:0] weA_package,
 	input [collection*z-1:0] weB_package,
 	input [collection*z*addrsize-1:0] addrA_package,
@@ -365,7 +609,8 @@ module collection_true_dualport_mem #(
 			.width(width), 
 			.depth(depth)
 		) parallel_true_dualport_mem (
-			.clk(clk),
+			.clk,
+			.reset,
 			.addressA_package(addrA[gv_i]),
 			.weA(weA[gv_i]),
 			.data_inA_package(data_inA[gv_i]),

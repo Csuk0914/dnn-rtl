@@ -20,7 +20,7 @@ module relu_all #(
 
 	// Use raw values to mimic coding style in sigmoid
 	logic [width-1:0] relu = '0;
-	logjc [width-1:0] relu_prime = '0;
+	logic [width-1:0] relu_prime = '0;
 	
 	always @(posedge clk) begin	
 		relu_out <= relu;

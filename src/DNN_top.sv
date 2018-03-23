@@ -9,18 +9,20 @@ module DNN_top #(
 	parameter width = 10,
 	parameter int_bits = 2,
 	parameter L = 3,
+	parameter [31:0] actfn [0:L-2] = '{0,0}, //Activation function for all junctions. 0 = sigmoid, 1 = relu
+	parameter costfn = 1, //Cost function for output layer. 0 = quadcost, 1 = xentcost
 	
 	parameter [31:0] n [0:L-1] = '{1024, 64, 64}, //No. of neurons in every layer
 	parameter [31:0] fo [0:L-2] = '{8, 4},//Fanout of all layers except for output
 	parameter [31:0] fi [0:L-2]  = '{128, 4}, //Fanin of all layers except for input
 	parameter [31:0] z [0:L-2]  = '{128, 4}, //Degree of parallelism of all junctions. No. of junctions = L-1
-	parameter [31:0] actfn [0:L-2] = '{0,0}, //Activation function for all junctions. 0 = sigmoid, 1 = relu
-	parameter costfn = 1, //Cost function for output layer. 0 = quadcost, 1 = xentcost
 	
 	localparam frac_bits = width-int_bits-1,
 	localparam cpc =  n[0] * fo[0] / z[0] + 2
 )(
 	input [width_in*z[0]/fo[0]-1:0] act0, //No. of input activations coming into input layer per clock, each having width_in bits
+	//ans0 is generated inside
+	input [$clog2(frac_bits+2)-1:0] etapos0,
 	input clk,
 	input reset,
 	output cycle_clk,
@@ -36,8 +38,8 @@ module DNN_top #(
 	logic [n[L-1]-1:0] ans0_tc; //Complete 1b ideal output for 1 training case, i.e. No. of output neurons x 1 x 1
 
 	DNN #(
-		.width(width), 
 		.width_in(width_in),
+		.width(width),
 		.int_bits(int_bits),
 		.L(L), 
 		.actfn(actfn),
@@ -49,7 +51,7 @@ module DNN_top #(
 	) DNN (
 		.act0(act0),
 		.ans0(ans0), 
-		.etapos0(4), 
+		.etapos0(etapos0), 
 		.clk(clk),
 		.reset(reset),
 		.cycle_clk(cycle_clk),
@@ -58,7 +60,10 @@ module DNN_top #(
 		.actL_alln(actL_alln)
 	);
 
- 	//ideal out mem
+
+ 	////////////////////////////////////////////////////////////////////////////////////
+	// Ideal out logic
+	////////////////////////////////////////////////////////////////////////////////////
 	idealout_singleport_mem #(
 		.depth(`TC),
 		.width(width)
@@ -70,25 +75,7 @@ module DNN_top #(
 		.data_in({width{1'b0}}), //doesn't matter because we is always 0
 		.data_out(ans_mem)
 	);
-
-
-	/*** Training cases Pre-Processing ***/
-	assign sel_network = cycle_index[$clog2(cpc-2)-1:0]-2;
-	/* cycle_index goes from 0-17, so its 4 LSB go from 0 to cpc-3 then 0 to 1
-	* But nothing happens in the last 2 cycles since pipeline delay is 2
-	* So take values of cycle_index from 0-15 and subtract 2 to make its 4 LSB go from 14-15, then 0-13
-	* Note that the jumbled order isn't important as long as all inputs from 0-15 are fed */
 	
-	always @(posedge cycle_clk) begin
-		if(!reset) begin
-			sel_tc <= (sel_tc == `TC-1)? 0 : sel_tc + 1;
-		end else begin
-			sel_tc <= 0;
-		end
-	end
-	
-	
-	/*** ideal out input logic ***/
 	genvar gv_i;
 	generate for (gv_i = 0; gv_i<n[L-1]; gv_i = gv_i + 1)
 	begin: ideal_out_input
@@ -102,4 +89,21 @@ module DNN_top #(
 	) mux_idealoutput_feednetwork (
 		ans0_tc, sel_network, ans0);
 
+
+	////////////////////////////////////////////////////////////////////////////////////
+	// Training cases Pre-Processing
+	////////////////////////////////////////////////////////////////////////////////////
+	assign sel_network = cycle_index[$clog2(cpc-2)-1:0]-2;
+	/* cycle_index goes from 0-17, so its 4 LSB go from 0 to cpc-3 then 0 to 1
+	* But nothing happens in the last 2 cycles since pipeline delay is 2
+	* So take values of cycle_index from 0-15 and subtract 2 to make its 4 LSB go from 14-15, then 0-13
+	* Note that the jumbled order isn't important as long as all inputs from 0-15 are fed */
+	
+	always @(posedge cycle_clk) begin
+		if(!reset) begin
+			sel_tc <= (sel_tc == `TC-1)? 0 : sel_tc + 1;
+		end else begin
+			sel_tc <= 0;
+		end
+	end
 endmodule
