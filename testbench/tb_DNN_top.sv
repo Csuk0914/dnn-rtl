@@ -19,7 +19,7 @@
 `define TTC 1*`TC //Total training cases over all epochs
 `define CHECKLAST 1000 //How many last inputs to check for accuracy*/
 
-module tb_DNN #(
+module tb_DNN_top #(
 	parameter width_in = 8,
 	parameter width = 10,
 	parameter int_bits = 2,
@@ -57,15 +57,17 @@ module tb_DNN #(
 	Min allowable value of Eta = 2^(-frac_bits) => Max value of etapos = frac_bits+1, which needs log2(frac_bits+2) bits to store
 	Max allowable value of Eta = 1 => Min value of etapos = 1. So etapos is never 0 */
 	logic [width_in*z[0]/fo[0]-1:0] act0; //No. of input activations coming into input layer per clock, each having width_in bits
-	logic [z[L-2]/fi[L-2]-1:0] ans0; //No. of ideal outputs coming into input layer per clock
+	//logic [z[L-2]/fi[L-2]-1:0] ans0; //No. of ideal outputs coming into input layer per clock
 	logic [z[L-2]/fi[L-2]-1:0] ansL; //ideal output (ans0 after going through all layers)
 	logic [n[L-1]-1:0] actL_alln; //Actual output [Eg: 4/4=1 output neuron processed per clock] of ALL output neurons
+	logic [$clog2(`TC)-1:0] sel_tc; //MUX select to choose training case each block cycle
+	logic [$clog2(cpc-2)-1:0] sel_network; //MUX select to choose which input/output pair to feed to network within a block cycle
 	////////////////////////////////////////////////////////////////////////////////////
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// Instantiate DNN_top
 	////////////////////////////////////////////////////////////////////////////////////
-	DNN #(
+	DNN_top #(
 		.width_in(width_in),
 		.width(width), 
 		.int_bits(int_bits),
@@ -76,16 +78,18 @@ module tb_DNN #(
 		.fo(fo), 
 		.fi(fi), 
 		.z(z)
-	) DNN (
+	) DNN_top (
 		.act0,
-		.ans0,
+		//.ans0,
 		.etapos0(etapos), 
 		.clk,
 		.reset,
 		.cycle_clk,
 		.cycle_index,
 		.ansL,
-		.actL_alln
+		.actL_alln,
+		.sel_tc,
+		.sel_network
 	);
 	////////////////////////////////////////////////////////////////////////////////////
 
@@ -93,8 +97,7 @@ module tb_DNN #(
 	// Set Clock, Reset, etapos
 	////////////////////////////////////////////////////////////////////////////////////
 	initial begin : reset_logic
-		#(cpc*L*`CLOCKPERIOD + 1) reset = 0;
-		//max shift reg depth is cpc*(L-1). So lower reset after even the deepest DFFs in the shift regs have time to latch 0 from previous stages
+		#(cpc*L*`CLOCKPERIOD + 1) reset = 0; //max shift reg depth is cpc*(L-1). So lower reset after even the deepest DFFs in the shift regs have time to latch 0 from previous stages
 	end
 	
 	initial begin : etapos_logic
@@ -107,22 +110,16 @@ module tb_DNN #(
 	////////////////////////////////////////////////////////////////////////////////////
 	// Training cases Pre-Processing
 	////////////////////////////////////////////////////////////////////////////////////
-	logic [$clog2(`TC)-1:0] sel_tc = 0; //MUX select to choose training case each block cycle
-	logic [$clog2(cpc-2)-1:0] sel_network; //MUX select to choose which input/output pair to feed to network within a block cycle
-	logic [n[L-1]-1:0] ans0_tc; //Complete 1b ideal output for 1 training case, i.e. No. of output neurons x 1 x 1
+	//logic [n[L-1]-1:0] ans0_tc; //Complete 1b ideal output for 1 training case, i.e. No. of output neurons x 1 x 1
 	logic [width_in*n[0]-1:0] act0_tc; //Complete 8b act input for 1 training case, i.e. No. of input neurons x 8 x 1
 
-	assign sel_network = cycle_index[$clog2(cpc-2)-1:0]-2;
-	/* cycle_index goes from 0-17, so its 4 LSB go from 0 to cpc-3 then 0 to 1
-	* But nothing happens in the last 2 cycles since pipeline delay is 2
-	* So take values of cycle_index from 0-15 and subtract 2 to make its 4 LSB go from 14-15, then 0-13
-	* Note that the jumbled order isn't important as long as all inputs from 0-15 are fed */
+	//assign sel_network = cycle_index[$clog2(cpc-2)-1:0]-2;
 	
-	mux #( //Choose the required no. of ideal outputs for feeding to DNN
+	/*mux #( //Choose the required no. of ideal outputs for feeding to DNN
 		.width(z[L-2]/fi[L-2]), 
 		.N(n[L-1]*fi[L-2]/z[L-2]) //This is basically cpc-2 of the last junction
 	) mux_idealoutput_feednetwork (
-		ans0_tc, sel_network, ans0);
+		ans0_tc, sel_network, ans0);*/
 
 	mux #( //Choose the required no. of act inputs for feeding to DNN
 		.width(width_in*z[0]/fo[0]), 
@@ -153,32 +150,32 @@ module tb_DNN #(
 	`ifdef MNIST
 		`ifdef MODELSIM
 			logic [width_in-1:0] act_mem[`TC-1:0][`NIN-1:0]; //inputs
-			logic ans_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
+			//logic ans_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
 			initial begin
-				$readmemb("./data/mnist/train_idealout_spaced.dat", ans_mem);
+				//$readmemb("./data/mnist/train_idealout_spaced.dat", ans_mem);
 				$readmemh("./data/mnist/train_input_spaced.dat", act_mem);
 			end       
 		`elsif VIVADO
 			logic [width_in-1:0] act_mem[`TC-1:0][0:`NIN-1]; //flipping only occurs in the 784 dimension
-			logic ans_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
+			//logic ans_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
 			initial begin
-				$readmemb("./data/mnist/train_idealout.dat", ans_mem);
+				//$readmemb("./data/mnist/train_idealout.dat", ans_mem);
 				$readmemh("./data/mnist/train_input.dat", act_mem);
 			end
 		`endif
 	`elsif SMALLNET
 		`ifdef MODELSIM
 			logic [width_in-1:0] act_mem[`TC-1:0][`NIN-1:0]; //inputs
-			logic ans_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
+			//logic ans_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
 			initial begin
-				$readmemb("./data/smallnet/train_idealout_4_spaced.dat", ans_mem);
+				//$readmemb("./data/smallnet/train_idealout_4_spaced.dat", ans_mem);
 				$readmemh("./data/smallnet/train_input_64_spaced.dat", act_mem);
 			end       
 		`elsif VIVADO
 			logic [width_in-1:0] act_mem[`TC-1:0][0:`NIN-1]; //flipping only occurs in the 784 dimension
-			logic ans_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
+			//logic ans_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
 			initial begin
-				$readmemb("./data/smallnet/train_idealout_4.dat", ans_mem);
+				//$readmemb("./data/smallnet/train_idealout_4.dat", ans_mem);
 				$readmemh("./data/smallnet/train_input_64.dat", act_mem);
 			end
 		`endif	
@@ -191,11 +188,11 @@ module tb_DNN #(
 	end
 	endgenerate
 
-	generate for (gv_i = 0; gv_i<n[L-1]; gv_i = gv_i + 1)
+	/*generate for (gv_i = 0; gv_i<n[L-1]; gv_i = gv_i + 1)
 	begin: pp
 		assign ans0_tc[gv_i] = (gv_i<`NOUT)? ans_mem[sel_tc][gv_i]:0;
 	end
-	endgenerate
+	endgenerate*/
 	////////////////////////////////////////////////////////////////////////////////////
 	
 	////////////////////////////////////////////////////////////////////////////////////
@@ -238,25 +235,26 @@ module tb_DNN #(
 	always @(negedge clk) begin
 		if (cycle_index==2) begin
 			for (q=0;q<z[L-2];q=q+1) begin //Weights and activations
-				act1[q] = DNN.hidden_layer_block_1.UP_processor.act_in[q]/2.0**frac_bits;
-				wb1[q] = DNN.hidden_layer_block_1.UP_processor.wt[q]/2.0**frac_bits;
-				//del_wb1[q] = DNN.hidden_layer_block_1.UP_processor.delta_wt[q]/2.0**frac_bits;
+				act1[q] = DNN_top.DNN.hidden_layer_block_1.UP_processor.act_in[q]/2.0**frac_bits;
+				wb1[q] = DNN_top.DNN.hidden_layer_block_1.UP_processor.wt[q]/2.0**frac_bits;
+				//del_wb1[q] = DNN_top.DNN.hidden_layer_block_1.UP_processor.delta_wt[q]/2.0**frac_bits;
 			end
 			for (q=z[L-2];q<z[L-2]+z[L-2]/fi[L-2];q=q+1) begin //Biases
-				wb1[q] =DNN.hidden_layer_block_1.UP_processor.bias[q-z[L-2]]/2.0**frac_bits;
-				//del_wb1[q] =DNN.hidden_layer_block_1.UP_processor.delta_bias[q-z[L-2]]/2.0**frac_bits;
+				wb1[q] = DNN_top.DNN.hidden_layer_block_1.UP_processor.bias[q-z[L-2]]/2.0**frac_bits;
+				//del_wb1[q] = DNN_top.DNN.hidden_layer_block_1.UP_processor.delta_bias[q-z[L-2]]/2.0**frac_bits;
 			end
 		end
 		if (cycle_index>1) begin //Actual output, ideal output, actans_diff_alln_calc
-			actL_alln_calc[cycle_index-2] = DNN.actL1/2.0**frac_bits;
+			actL_alln_calc[cycle_index-2] = DNN_top.DNN.actL1/2.0**frac_bits;
 			ansL_alln_calc[cycle_index-2] = ansL; //Division is not required because it is not in bit form
-			// spL[cycle_index-2] = DNN.output_layer_block.adot_in/2.0**frac_bits;
+			// spL[cycle_index-2] = DNN_top.DNN.output_layer_block.adot_in/2.0**frac_bits;
+			
 			// The next 2 values occur as packed inside src (which can't be signed), so we need to separate 1 unsigned value
-			actans_diff_alln_calc[cycle_index-2] = DNN.output_layer_block.del[width-1:0]/2.0**frac_bits - DNN.output_layer_block.del[width-1]*2.0**(1+int_bits);
-			// actans_diff[cycle_index-2] = DNN.output_layer_block.actans_diff[width-1:0]/2.0**frac_bits - DNN.output_layer_block.actans_diff[width-1]*2.0**(1+int_bits);
+			actans_diff_alln_calc[cycle_index-2] = DNN_top.DNN.output_layer_block.del[width-1:0]/2.0**frac_bits - DNN.output_layer_block.del[width-1]*2.0**(1+int_bits);
+			// actans_diff[cycle_index-2] = DNN_top.DNN.output_layer_block.actans_diff[width-1:0]/2.0**frac_bits - DNN.output_layer_block.actans_diff[width-1]*2.0**(1+int_bits);
 		end
 		/*if (cycle_index>0 && cycle_index<=cpc-2) begin //z of output layer
-			zL[cycle_index-1] = DNN.hidden_layer_block_1.FF_processor.sigmoid_function_set[0].s_function.s/2.0**frac_bits;
+			zL[cycle_index-1] = DNN_top.DNN.hidden_layer_block_1.FF_processor.sigmoid_function_set[0].s_function.s/2.0**frac_bits;
 		end*/
 	end
 	////////////////////////////////////////////////////////////////////////////////////
@@ -272,7 +270,7 @@ module tb_DNN #(
 	always @(posedge cycle_clk) begin
 		#0; //let everything in the circuit finish before starting performance eval
 		num_train = num_train + 1;
-		sel_tc = (sel_tc == `TC-1)? 0 : sel_tc + 1;
+		//sel_tc = (sel_tc == `TC-1)? 0 : sel_tc + 1;
 
 		recent = recent - crt[crt_pt]; //crt[crt_pt] is the value about to be replaced 
 		correct = 1; //temporary placeholder
