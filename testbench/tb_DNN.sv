@@ -1,7 +1,6 @@
 `timescale 1ns/100ps
 
 `define CLOCKPERIOD 10
-`define INITMEMSIZE 2000 //number of elements in gaussian_list
 
 //`define MODELSIM
 `define VIVADO
@@ -9,7 +8,7 @@
 `define MNIST //Dataset
 `define NIN 784 //Number of inputs AS IN DATASET
 `define NOUT 10 //Number of outputs AS IN DATASET
-`define TC 10000 //Training cases to be considered in 1 epoch
+`define TC 12544 //Training cases to be considered in 1 epoch
 `define TTC 10*`TC //Total training cases over all epochs
 `define CHECKLAST 1000 //How many last inputs to check for accuracy
 
@@ -21,13 +20,14 @@
 `define CHECKLAST 1000 //How many last inputs to check for accuracy*/
 
 module tb_DNN #(
-	parameter width = 10,
 	parameter width_in = 8,
+	parameter width = 10,
 	parameter int_bits = 2,
-	parameter frac_bits = width-int_bits-1,
 	parameter L = 3,
-	parameter Eta = 2.0**(-5) //Should be a power of 2. Value between 2^(-frac_bits) and 1. DO NOT WRITE THIS AS 2**x, it doesn't work without 2.0
-	//parameter lamda = 0.9, //weights are capped at absolute value = lamda*2**int_bits
+	parameter [31:0] actfn [0:L-2] = '{0,0}, //Activation function for all junctions. 0 = sigmoid, 1 = relu
+	parameter costfn = 1, //Cost function for output layer. 0 = quadcost, 1 = xentcost
+	//parameter Eta = 2.0**(-4), //Should be a power of 2. Value between 2^(-frac_bits) and 1. DO NOT WRITE THIS AS 2**x, it doesn't work without 2.0
+	localparam frac_bits = width-int_bits-1
 );
 
 `ifdef MNIST
@@ -43,93 +43,74 @@ module tb_DNN #(
 `endif
 	localparam cpc =  n[0] * fo[0] / z[0] + 2;
 	
+	
 	////////////////////////////////////////////////////////////////////////////////////
 	// define DNN DUT I/O
 	// DNN input: clk, reset, etapos, act0, ans0
 	// DNN output: ansL, actL_alln
 	////////////////////////////////////////////////////////////////////////////////////
-	reg clk = 1;
-	reg reset = 1;
-	reg [$clog2(frac_bits+2)-1:0] etapos; /*etapos = -log2(Eta)+1. Eg: If Eta=2^-4, etapos=5. etapos=0 is not valid
+	logic clk = 1;
+	logic reset = 1;
+	logic cycle_clk;
+	logic [$clog2(cpc)-1:0] cycle_index;
+	logic [$clog2(frac_bits+2)-1:0] etapos; /*etapos = -log2(Eta)+1. Eg: If Eta=2^-4, etapos=5. etapos=0 is not valid
 	Min allowable value of Eta = 2^(-frac_bits) => Max value of etapos = frac_bits+1, which needs log2(frac_bits+2) bits to store
 	Max allowable value of Eta = 1 => Min value of etapos = 1. So etapos is never 0 */
-	wire [width_in*z[0]/fo[0]-1:0] act0; //No. of input activations coming into input layer per clock, each having width_in bits
-	wire [z[L-2]/fi[L-2]-1:0] ans0; //No. of ideal outputs coming into input layer per clock
-	wire [z[L-2]/fi[L-2]-1:0] ansL; //ideal output (ans0 after going through all layers)
-	wire [n[L-1]-1:0] actL_alln; //Actual output [Eg: 4/4=1 output neuron processed per clock] of ALL output neurons
-	// wire [z[L-2]/fi[L-2]-1:0] actL_alln;
+	logic [width_in*z[0]/fo[0]-1:0] act0; //No. of input activations coming into input layer per clock, each having width_in bits
+	logic [z[L-2]/fi[L-2]-1:0] ans0; //No. of ideal outputs coming into input layer per clock
+	logic [z[L-2]/fi[L-2]-1:0] ansL; //ideal output (ans0 after going through all layers)
+	logic [n[L-1]-1:0] actL_alln; //Actual output [Eg: 4/4=1 output neuron processed per clock] of ALL output neurons
 	////////////////////////////////////////////////////////////////////////////////////
 
 	////////////////////////////////////////////////////////////////////////////////////
-	// Instantiate DNN
+	// Instantiate DNN_top
 	////////////////////////////////////////////////////////////////////////////////////
 	DNN #(
-		.width(width), 
 		.width_in(width_in),
+		.width(width), 
 		.int_bits(int_bits),
-		.frac_bits(frac_bits),
 		.L(L), 
+		.actfn(actfn),
+		.costfn(costfn),
+		.n(n),
 		.fo(fo), 
 		.fi(fi), 
-		.z(z), 
-		.n(n)
-		//.eta(eta), 
-		//.lamda(lamda),
-	) DNN (
-		.act0(act0),
-		.ans0(ans0), 
+		.z(z)
+	) inst_toplevel (
+		.act0,
+		.ans0,
 		.etapos0(etapos), 
-		.clk(clk),
-		.reset(reset),
-		.ansL(ansL),
-		.actL_alln(actL_alln)
+		.clk,
+		.reset,
+		.cycle_clk,
+		.cycle_index,
+		.ansL,
+		.actL_alln
 	);
 	////////////////////////////////////////////////////////////////////////////////////
 
 	////////////////////////////////////////////////////////////////////////////////////
-	// Set Clock, Cycle Clock, Reset, etapos
+	// Set Clock, Reset, etapos
 	////////////////////////////////////////////////////////////////////////////////////
-	initial begin
-		//#1 reset = 1;	
+	initial begin : reset_logic
 		#(cpc*L*`CLOCKPERIOD + 1) reset = 0;
 		//max shift reg depth is cpc*(L-1). So lower reset after even the deepest DFFs in the shift regs have time to latch 0 from previous stages
 	end
-
-	// Get etapos from Eta
-	integer etaloop;
-	reg found = 0;
-	reg [width-1:0] eta;
-	initial begin
-		eta = Eta * (2 ** frac_bits); //convert the Eta to fix point
-		for (etaloop=0; etaloop<=frac_bits; etaloop=etaloop+1) begin
-			if (eta[frac_bits-etaloop] && !found) begin
-				etapos = etaloop+1;
-				found = 1;
-			end
-		end
+	
+	initial begin : etapos_logic
+		etapos = 5;
 	end
 
 	always #(`CLOCKPERIOD/2) clk = ~clk;
-	
-	wire cycle_clk;
-	wire [$clog2(cpc)-1:0] cycle_index;
-	cycle_block_counter #(
-		.cpc(cpc)
-	) cycle_counter (
-		.clk(clk),
-		.reset(reset),
-		.cycle_clk(cycle_clk),
-		.count(cycle_index)
-	);
 	////////////////////////////////////////////////////////////////////////////////////
 
 	////////////////////////////////////////////////////////////////////////////////////
 	// Training cases Pre-Processing
 	////////////////////////////////////////////////////////////////////////////////////
-	reg [$clog2(`TC)-1:0] sel_tc = 0; //MUX select to choose training case each block cycle
-	wire [$clog2(cpc-2)-1:0] sel_network; //MUX select to choose which input/output pair to feed to network within a block cycle
-	wire [n[L-1]-1:0] ans0_tc; //Complete 1b ideal output for 1 training case, i.e. No. of output neurons x 1 x 1
-	wire [width_in*n[0]-1:0] act0_tc; //Complete 8b act input for 1 training case, i.e. No. of input neurons x 8 x 1
+	logic [$clog2(`TC)-1:0] sel_tc = 0; //MUX select to choose training case each block cycle
+	logic [$clog2(cpc-2)-1:0] sel_network; //MUX select to choose which input/output pair to feed to network within a block cycle
+	logic [n[L-1]-1:0] ans0_tc; //Complete 1b ideal output for 1 training case, i.e. No. of output neurons x 1 x 1
+	logic [width_in*n[0]-1:0] act0_tc; //Complete 8b act input for 1 training case, i.e. No. of input neurons x 8 x 1
 
 	assign sel_network = cycle_index[$clog2(cpc-2)-1:0]-2;
 	/* cycle_index goes from 0-17, so its 4 LSB go from 0 to cpc-3 then 0 to 1
@@ -159,13 +140,6 @@ module tb_DNN #(
 		1 line is one pattern with 10 one-hot binary. Values from 10-15 are set to 0 */
 	////////////////////////////////////////////////////////////////////////////////////
 	
-	reg signed [width-1:0] memJ1 [`INITMEMSIZE-1:0]; //1st junction weight memory
-	reg signed [width-1:0] memJ2 [`INITMEMSIZE-1:0]; //2nd junction weight memory
-	initial begin
-		$readmemb("./gaussian_list/s136_frc7_int2.dat", memJ1);
-		$readmemb("./gaussian_list/s40_frc7_int2.dat", memJ2);
-	end
-	
 	/* SIMULATOR NOTES:
 	*	Modelsim can read a input file with spaces and assign it in natural counting order
 		Eg: The line a b c d e f g h i j when written to an input vector [9:0], will be written as [0]=a, [1]=b, ..., [9]=j
@@ -178,15 +152,15 @@ module tb_DNN #(
 	
 	`ifdef MNIST
 		`ifdef MODELSIM
-			reg [width_in-1:0] act_mem[`TC-1:0][`NIN-1:0]; //inputs
-			reg ans_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
+			logic [width_in-1:0] act_mem[`TC-1:0][`NIN-1:0]; //inputs
+			logic ans_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
 			initial begin
 				$readmemb("./data/mnist/train_idealout_spaced.dat", ans_mem);
 				$readmemh("./data/mnist/train_input_spaced.dat", act_mem);
 			end       
 		`elsif VIVADO
-			reg [width_in-1:0] act_mem[`TC-1:0][0:`NIN-1]; //flipping only occurs in the 784 dimension
-			reg ans_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
+			logic [width_in-1:0] act_mem[`TC-1:0][0:`NIN-1]; //flipping only occurs in the 784 dimension
+			logic ans_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
 			initial begin
 				$readmemb("./data/mnist/train_idealout.dat", ans_mem);
 				$readmemh("./data/mnist/train_input.dat", act_mem);
@@ -194,15 +168,15 @@ module tb_DNN #(
 		`endif
 	`elsif SMALLNET
 		`ifdef MODELSIM
-			reg [width_in-1:0] act_mem[`TC-1:0][`NIN-1:0]; //inputs
-			reg ans_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
+			logic [width_in-1:0] act_mem[`TC-1:0][`NIN-1:0]; //inputs
+			logic ans_mem[`TC-1:0][`NOUT-1:0]; //ideal outputs
 			initial begin
 				$readmemb("./data/smallnet/train_idealout_4_spaced.dat", ans_mem);
 				$readmemh("./data/smallnet/train_input_64_spaced.dat", act_mem);
 			end       
 		`elsif VIVADO
-			reg [width_in-1:0] act_mem[`TC-1:0][0:`NIN-1]; //flipping only occurs in the 784 dimension
-			reg ans_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
+			logic [width_in-1:0] act_mem[`TC-1:0][0:`NIN-1]; //flipping only occurs in the 784 dimension
+			logic ans_mem[`TC-1:0][0:`NOUT-1]; //flipping only occurs in the 10 dimension
 			initial begin
 				$readmemb("./data/smallnet/train_idealout_4.dat", ans_mem);
 				$readmemh("./data/smallnet/train_input_64.dat", act_mem);
@@ -364,3 +338,17 @@ module tb_DNN #(
 			else error_rate = error_rate + DNN.actL1/(2**frac_bits); //ansL = 0, so |ansL-actL| = actL
 	end */
 endmodule
+
+/* Get etapos from Eta
+	integer etaloop;
+	logic found = 0;
+	logic [width-1:0] eta;
+	initial begin
+		eta = Eta * (2 ** frac_bits); //convert the Eta to fix point
+		for (etaloop=0; etaloop<=frac_bits; etaloop=etaloop+1) begin
+			if (eta[frac_bits-etaloop] && !found) begin
+				etapos = etaloop+1;
+				found = 1;
+			end
+		end
+	end */
