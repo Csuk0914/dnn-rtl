@@ -9,7 +9,7 @@
 `define NIN 784 //Number of inputs AS IN DATASET
 `define NOUT 10 //Number of outputs AS IN DATASET
 `define TC 12544 //Training cases to be considered in 1 epoch
-`define TTC 10*`TC //Total training cases over all epochs
+`define TTC 50*`TC //Total training cases over all epochs
 `define CHECKLAST 1000 //How many last inputs to check for accuracy
 
 /*`define SMALLNET //Dataset
@@ -31,10 +31,10 @@ module tb_DNN_top #(
 );
 
 `ifdef MNIST
-	parameter [31:0] n [0:L-1] = '{1024, 64, 16}; //No. of neurons in every layer
-	parameter [31:0] fo [0:L-2] = '{8, 8}; //Fanout of all layers except for output
-	parameter [31:0] fi [0:L-2] = '{128, 32}; //Fanin of all layers except for input
-	parameter [31:0] z [0:L-2] = '{512, 32}; //Degree of parallelism of all junctions. No. of junctions = L-1
+	parameter [31:0] n [0:L-1] = '{1024, 64, 32}; //No. of neurons in every layer
+	parameter [31:0] fo [0:L-2] = '{4, 16}; //Fanout of all layers except for output
+	parameter [31:0] fi [0:L-2] = '{64, 32}; //Fanin of all layers except for input
+	parameter [31:0] z [0:L-2] = '{128, 32}; //Degree of parallelism of all junctions. No. of junctions = L-1
 `elsif SMALLNET
 	parameter [31:0] n [0:L-1] = '{64, 16, 4};
 	parameter [31:0] fo [0:L-2] = '{2, 2};
@@ -99,7 +99,9 @@ module tb_DNN_top #(
 	end
 	
 	initial begin : etapos_logic
-		etapos = 5;
+		etapos = 4;
+		#(cpc*`CLOCKPERIOD*25000 + 1) etapos = 5; //after about 25k inputs
+		#(cpc*`CLOCKPERIOD*50000 + 1) etapos = 6; //after another 50k, i.e. total 75k inputs
 	end
 
 	always #(`CLOCKPERIOD/2) clk = ~clk;
