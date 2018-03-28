@@ -51,8 +51,8 @@ module FF_processor_set #(
 
 	// Get actwt
 	generate for (gv_i = 0; gv_i<z; gv_i = gv_i + 1)
-	begin : multiplier
-		multiplier #(.width(width), .int_bits(int_bits)) mul (act_in[gv_i], wt[gv_i], actwt[gv_i] );
+	begin : FF_multiplier
+		multiplier_DSP #(.width(width), .int_bits(int_bits)) mul (act_in[gv_i], wt[gv_i], actwt[gv_i] );
 	end
 	endgenerate
 	
@@ -209,8 +209,8 @@ module BP_processor_set #(
 		for (gv_j = 0; gv_j<fi; gv_j = gv_j + 1)
 		begin : delta_accumulation
 		// [Eg for ppt example: Note that (w.d).f'(z) can be written as w0*d0*f'(z0) + w1*d0*f'(z0) + ... and then later ... w36*d2*f'(z2) ... and so on]
-			multiplier #(.width(width),.int_bits(int_bits)) a_d (del_in[gv_i], adot_out[gv_i*fi+gv_j], delta_act[gv_i*fi+gv_j]); //delta_act = d*f'
-			multiplier #(.width(width),.int_bits(int_bits)) w_d (delta_act[gv_i*fi+gv_j], wt[gv_i*fi+gv_j], delta_wt[gv_i*fi+gv_j]); //delta_wt = w*d*f'
+			multiplier_DSP #(.width(width),.int_bits(int_bits)) a_d (del_in[gv_i], adot_out[gv_i*fi+gv_j], delta_act[gv_i*fi+gv_j]); //delta_act = d*f'
+			multiplier_DSP #(.width(width),.int_bits(int_bits)) w_d (delta_act[gv_i*fi+gv_j], wt[gv_i*fi+gv_j], delta_wt[gv_i*fi+gv_j]); //delta_wt = w*d*f'
 			adder #(.width(width)) acc (delta_wt[gv_i*fi+gv_j], partial_del_out[gv_i*fi+gv_j], del_out[gv_i*fi+gv_j]); //Add above to respective del value
 		end
 	end
@@ -291,7 +291,7 @@ module UP_processor_set #(
 		adder #(.width(width)) update_b (bias[gv_i], delta_bias[gv_i], bias_UP[gv_i]);
 	
 		for (gv_j = 0; gv_j<fi; gv_j = gv_j + 1)
-		begin :weight_update
+		begin : weight_update
 			multiplier #(.width(width),.int_bits(int_bits)) mul_act_del (delta_bias[gv_i], act_in[gv_i*fi+gv_j], delta_wt[gv_i*fi+gv_j]);
 			adder #(.width(width)) update_wt (wt[gv_i*fi+gv_j], delta_wt[gv_i*fi+gv_j], wt_UP[gv_i*fi+gv_j]);
 		end

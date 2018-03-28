@@ -3,8 +3,7 @@
 
 `timescale 1ns/100ps
 
-// Custom made signed multiplier where output is modified to have same fixed point width setup as inputs
-// Can use normal logic (parametrizable), or IP (needs to be re-generated for every parameter change)
+// Custom made signed multiplier where output is modified to have same fixed point width setup as inputs, V1 - LUT
 module multiplier #(
 	parameter width = 12,
 	parameter int_bits = 3, //No. of bits in integer portion
@@ -17,7 +16,53 @@ module multiplier #(
 	logic signed [2*width-1:0] p_raw; //Holds full output
 	
 	assign p_raw = a*b;
-	// Can also do the above line with IP
+	
+	// Elegant, perhaps slow implementation
+	/*bit_scaler #(
+		.from_width(2*width),
+		.from_sign_bits(2),
+		.from_int_bits(2*int_bits),
+		.width(width),
+		.sign_bits(1),
+		.int_bits(int_bits)
+	) bs_mult (
+		.in(p_raw),
+		.out(p)
+	);*/
+	
+	//Messy, perhaps fast implementation
+	logic signed [width-1:0] p_temp; //1,5,10. Holds truncated output before rounding
+	assign p_temp = (p_raw[2*width-1]==0 && p_raw[2*width-2:2*width-int_bits-2]!=0) ? {1'b0, {(width-1){1'b1}}} : //positive overflow => set to max pos value
+			(p_raw[2*width-1]==1 && p_raw[2*width-2:2*width-int_bits-2]!={(int_bits+1){1'b1}}) ? {1'b1,{(width-1){1'b0}}} : //negative overflow => set to max neg value
+			{p_raw[2*width-1],p_raw[2*width-3-int_bits:width-int_bits-1]}; //no overflow truncated case
+		
+		/* To understand this, use the fact that MSB of p_raw = 2*width-1 and int_bits+1 from MSB are discarded because multiplier is only used for w*a and w*d.
+		Both a and d are <1, so we only need int_bits LSB [Eg: bits 24-20] of the integer part, since int_bits+1 MSB [Eg: bits 30-25] of integer part are always 000000 (pos) or 111111 (neg)
+		We also take MSB = sign and frac_bits MSB of frac part [Eg: Bits 19-10]. We discard frac_bits LSB [Eg: Bits 9-0] after using bit[9] to round */
+		
+		assign p = (p_raw[width-int_bits-2]==0 || p_temp=={1'b0,{(width-1){1'b1}}}) ? //check MSB of left-out frac part in p_raw
+			p_temp : // If that is 0, p=p_temp. If that is 1, but p_temp is max positive value, then also p=p_temp (because we don't want overflow)
+			p_temp+1; //otherwise round up p to p_temp+1, like 0.5 becomes 1
+endmodule
+
+
+// Custom made signed multiplier where output is modified to have same fixed point width setup as inputs, V2 - DSP
+module multiplier_DSP #(
+	parameter width = 12,
+	parameter int_bits = 3, //No. of bits in integer portion
+	localparam frac_bits = width-int_bits-1
+)(
+	input signed [width-1:0] a, 
+	input signed [width-1:0] b, 
+	output signed [width-1:0] p 
+);
+	logic signed [2*width-1:0] p_raw; //Holds full output
+	
+	mult_IP_DSP mult (
+	  .A(a),  // input wire [9 : 0] A
+	  .B(b),  // input wire [9 : 0] B
+	  .P(p_raw)  // output wire [19 : 0] P
+	);
 		
 	// Elegant, perhaps slow implementation
 	/*bit_scaler #(
@@ -45,7 +90,6 @@ module multiplier #(
 		assign p = (p_raw[width-int_bits-2]==0 || p_temp=={1'b0,{(width-1){1'b1}}}) ? //check MSB of left-out frac part in p_raw
 			p_temp : // If that is 0, p=p_temp. If that is 1, but p_temp is max positive value, then also p=p_temp (because we don't want overflow)
 			p_temp+1; //otherwise round up p to p_temp+1, like 0.5 becomes 1
-
 endmodule
 
 

@@ -60,7 +60,7 @@ module tb_DNN_top #(
 	//logic [z[L-2]/fi[L-2]-1:0] ans0; //No. of ideal outputs coming into input layer per clock
 	logic [z[L-2]/fi[L-2]-1:0] ansL; //ideal output (ans0 after going through all layers)
 	logic [n[L-1]-1:0] actL_alln; //Actual output [Eg: 4/4=1 output neuron processed per clock] of ALL output neurons
-	logic [$clog2(`TC)-1:0] sel_tc; //MUX select to choose training case each block cycle
+	logic [$clog2(`TC)-1:0] sel_tc = '0; //MUX select to choose training case each block cycle
 	logic [$clog2(cpc-2)-1:0] sel_network; //MUX select to choose which input/output pair to feed to network within a block cycle
 	////////////////////////////////////////////////////////////////////////////////////
 
@@ -87,9 +87,7 @@ module tb_DNN_top #(
 		.cycle_clk,
 		.cycle_index,
 		.ansL,
-		.actL_alln,
-		.sel_tc,
-		.sel_network
+		.actL_alln
 	);
 	////////////////////////////////////////////////////////////////////////////////////
 
@@ -113,7 +111,7 @@ module tb_DNN_top #(
 	//logic [n[L-1]-1:0] ans0_tc; //Complete 1b ideal output for 1 training case, i.e. No. of output neurons x 1 x 1
 	logic [width_in*n[0]-1:0] act0_tc; //Complete 8b act input for 1 training case, i.e. No. of input neurons x 8 x 1
 
-	//assign sel_network = cycle_index[$clog2(cpc-2)-1:0]-2;
+	assign sel_network = cycle_index[$clog2(cpc-2)-1:0]-2;
 	
 	/*mux #( //Choose the required no. of ideal outputs for feeding to DNN
 		.width(z[L-2]/fi[L-2]), 
@@ -268,10 +266,14 @@ module tb_DNN_top #(
 	end
 
 	always @(posedge cycle_clk) begin
+		if(!reset) begin
+			sel_tc <= (sel_tc == `TC-1)? 0 : sel_tc + 1;
+		end else begin
+			sel_tc <= 0;
+		end
+		
 		#0; //let everything in the circuit finish before starting performance eval
 		num_train = num_train + 1;
-		//sel_tc = (sel_tc == `TC-1)? 0 : sel_tc + 1;
-
 		recent = recent - crt[crt_pt]; //crt[crt_pt] is the value about to be replaced 
 		correct = 1; //temporary placeholder
 		for (q=0; q<n[L-1]; q=q+1) begin
@@ -316,11 +318,11 @@ module tb_DNN_top #(
 		//$fwrite (log_file, "delta_b2:     ");
 		//for(q=z[L-2]; q<z[L-2]+z[L-2]/fi[L-2]; q=q+1) $fwrite (log_file, "\t %1.3f", del_wb1[q]); $fwrite (log_file, "\n");
 		$fdisplay(log_file, "correct = %0d, recent_%4d = %3d, EMS = %5f", correct, `CHECKLAST, recent, EMS);
-		if (sel_tc == 0) begin
+		/*if (sel_tc == 0 && !reset) begin
 			$fdisplay(log_file, "\nFINISHED TRAINING EPOCH %0d", epoch);
 			$fdisplay(log_file, "Total Correct = %0d\n", total_correct);
 			epoch = epoch + 1;
-		end
+		end*/
 		
 		// Stop conditions
 		if (num_train==`TTC) $stop;

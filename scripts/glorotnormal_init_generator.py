@@ -66,8 +66,8 @@ def hex2mem(filename_hex = os.path.dirname(os.path.dirname(os.path.realpath('__f
 
 
 ########################## ONLY CHANGE THIS SECTION ###########################
-fo = [8,4]
-fi = [128,4]
+fo = [2,16]
+fi = [32,32]
 int_bits = 2
 frac_bits = 7
 ###############################################################################

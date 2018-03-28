@@ -250,8 +250,10 @@ module simple_dualport_mem #(
 		  .MEMORY_PRIMITIVE        ("auto"),          //string; "auto", "distributed", "block" or "ultra";
 		  .CLOCKING_MODE           ("common_clock"),  //string; "common_clock", "independent_clock" 
 		  .MEMORY_INIT_FILE        ("none"),          //string; "none" or "<filename>.mem" 
-		  //.MEMORY_INIT_PARAM       ("3DA,002,3FD,3FB,016,00E,004,3E8,007,00D,3E9,3F4,002,3FF,008,00E"),          //original config, cpc=16+2
-		  .MEMORY_INIT_PARAM	   ("3F4,3F7,3F7,3FA,3F7,00C,00C,006,00A,3E7,3EC,3F3,3DA,3FB,01C,3E9,3F8,01E,002,3E2,3F1,3FE,011,3FB,006,001,3FD,00C,3EC,3F4,3E4,004,012,003,004,3F5,005,005,004,01C,3DD,023,3F3,025,3F7,01A,00F,3F9,00A,3F6,3F9,3ED,3F6,002,3E7,3F4,3FA,3FA,006,014,00C,3FF,3FD,00E"),	//FPGA config, cpc=64+2
+		  //.MEMORY_INIT_PARAM     ("3DA,002,3FD,3FB,016,00E,004,3E8,007,00D,3E9,3F4,002,3FF,008,00E"),          //original config, cpc=16+2
+		  //.MEMORY_INIT_PARAM	   ("3D5,3DE,3B6,3DE,003,3FC,3EC,02A,00B,020,02E,01C,011,3E7,040,3EB,3DF,3FB,3F3,3F0,3FC,3EC,3F2,3EE,00C,022,033,3EB,02C,3FA,3F6,3FD"),	//FPGAconfig64_32_2, cpc=32+2=34
+		  .MEMORY_INIT_PARAM	   ("3D0,001,3E1,023,3F5,029,3F6,020,3E9,3F5,00C,3F2,3EE,3F8,3F7,3F3,3E8,3FB,3EF,001,00D,3E3,3FC,3F4,3F3,01A,3D2,3CF,3E3,3D6,001,025"),	//FPGAconfig64_32, cpc=32+2=34
+		  //.MEMORY_INIT_PARAM	   ("3F4,3F7,3F7,3FA,3F7,00C,00C,006,00A,3E7,3EC,3F3,3DA,3FB,01C,3E9,3F8,01E,002,3E2,3F1,3FE,011,3FB,006,001,3FD,00C,3EC,3F4,3E4,004,012,003,004,3F5,005,005,004,01C,3DD,023,3F3,025,3F7,01A,00F,3F9,00A,3F6,3F9,3ED,3F6,002,3E7,3F4,3FA,3FA,006,014,00C,3FF,3FD,00E"),	//FPGA config, cpc=64+2
 		  .USE_MEM_INIT            (1),               //integer; 0,1
 		  .WAKEUP_TIME             ("disable_sleep"), //string; "disable_sleep" or "use_sleep_pin" 
 		  .MESSAGE_CONTROL         (0),               //integer; 0,1
@@ -310,7 +312,8 @@ module simple_dualport_mem #(
 		  .CLOCKING_MODE           ("common_clock"),  //string; "common_clock", "independent_clock" 
 		  .MEMORY_INIT_FILE        ("none"),          //string; "none" or "<filename>.mem" 
 		  //.MEMORY_INIT_PARAM       ("3D2,3E2,008,030,3F9,3E8,020,3FD,043,048,003,008,017,3F9,3DC,009"),          //original_config, cpc=16+2
-		  .MEMORY_INIT_PARAM	   ("000,03F,02F,002,3C5,03F,3CF,3EF,01E,003,3FC,38C,002,026,3B0,008,039,05E,3C0,053,06D,038,038,3BE,01D,3AF,3F9,028,025,39E,021,004,011,058,3A7,030,014,3CD,051,02D,065,026,3EC,3F6,030,015,02C,04A,3A4,3EA,058,00E,094,01F,3CB,002,061,3A3,3E2,3F8,01A,3BE,391,3B5"),	//FPGA config, cpc=64+2
+		  .MEMORY_INIT_PARAM	   ("01C,019,004,3EF,004,3E4,3EF,3E6,3FC,3FD,3F8,3CA,3FE,011,034,3D8,3FF,00E,3D6,00F,3F8,025,3FE,003,00E,041,3FF,018,00B,3F9,01A,3C8"),	//FPGAconfig, cpc=32+2=34
+		  //.MEMORY_INIT_PARAM	   ("000,03F,02F,002,3C5,03F,3CF,3EF,01E,003,3FC,38C,002,026,3B0,008,039,05E,3C0,053,06D,038,038,3BE,01D,3AF,3F9,028,025,39E,021,004,011,058,3A7,030,014,3CD,051,02D,065,026,3EC,3F6,030,015,02C,04A,3A4,3EA,058,00E,094,01F,3CB,002,061,3A3,3E2,3F8,01A,3BE,391,3B5"),	//FPGA config, cpc=64+2
 		  .USE_MEM_INIT            (1),               //integer; 0,1
 		  .WAKEUP_TIME             ("disable_sleep"), //string; "disable_sleep" or "use_sleep_pin" 
 		  .MESSAGE_CONTROL         (0),               //integer; 0,1
