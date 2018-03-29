@@ -66,10 +66,10 @@ def hex2mem(filename_hex = os.path.dirname(os.path.dirname(os.path.realpath('__f
 
 
 ########################## ONLY CHANGE THIS SECTION ###########################
-fo = [2,16]
-fi = [32,32]
-int_bits = 2
-frac_bits = 7
+fo = [4,16]
+fi = [64,32]
+int_bits = 3
+frac_bits = 8
 ###############################################################################
 
 glorotnormal_init_generate(fi[0],fo[0],int_bits,frac_bits, filename='/s{0}_frc{1}_int{2}'.format(fi[0]+fo[0],frac_bits,int_bits))

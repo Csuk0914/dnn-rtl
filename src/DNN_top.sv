@@ -12,10 +12,10 @@ module DNN_top #(
 	parameter [31:0] actfn [0:L-2] = '{0,0}, //Activation function for all junctions. 0 = sigmoid, 1 = relu
 	parameter costfn = 1, //Cost function for output layer. 0 = quadcost, 1 = xentcost
 	
-	parameter [31:0] n [0:L-1] = '{1024, 64, 32}, //No. of neurons in every layer
-	parameter [31:0] fo [0:L-2] = '{4, 16},//Fanout of all layers except for output
-	parameter [31:0] fi [0:L-2]  = '{64, 32}, //Fanin of all layers except for input
-	parameter [31:0] z [0:L-2]  = '{128, 32}, //Degree of parallelism of all junctions. No. of junctions = L-1
+	parameter [31:0] n [0:L-1] = '{1024, 64, 16}, //No. of neurons in every layer
+	parameter [31:0] fo [0:L-2] = '{8, 8},//Fanout of all layers except for output
+	parameter [31:0] fi [0:L-2]  = '{128, 32}, //Fanin of all layers except for input
+	parameter [31:0] z [0:L-2]  = '{512, 32}, //Degree of parallelism of all junctions. No. of junctions = L-1
 	
 	localparam frac_bits = width-int_bits-1,
 	localparam cpc =  n[0] * fo[0] / z[0] + 2
@@ -66,7 +66,7 @@ module DNN_top #(
 	////////////////////////////////////////////////////////////////////////////////////
 	idealout_singleport_mem #(
 		.depth(`TC),
-		.width(width)
+		.width(`NOUT)
 	) ideal_out_mem (
 		.clk(clk),
 		.reset(reset),
