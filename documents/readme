@@ -3,4 +3,5 @@ This is documents folder created by Diandian Chen.
 The slide file "Implementation and Operation Steps.pptx" shows general ideas of the design and steps of how to operate on PC and board.
 "Input File Handling.pptx" explains why and how to do modification on the original input data file. A Python script mentioned in it and original input file are included.
 
-This folder contains main codes of current working board implementation. DNN codes may not be of the latest version.
+Folder "documents" contains main codes of current working board implementation. DNN codes may not be of the latest version.
+Folder "MIG_DDR_sim" contains files needed for a simulation project verify functionality of DDR controller written by me. Files in it need more comments. To be update later.
