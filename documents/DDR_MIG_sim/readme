@@ -1,0 +1,5 @@
+This folder contains slides (DDR Controller Coding.pptx) for using DDR via MIG,
+and all files needed to do simulation to verify functionality of this controller.
+
+This controller is just for understanding and modification. Perhaps you need some
+more changes to make it fit for future use of DDR.
